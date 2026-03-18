@@ -15,15 +15,11 @@ Sigue los pasos de este documento para configurar correctamente la aplicación y
 
 ## 📥 1. Instalación de dependencias necesarias
 
-Antes de ejecutar `servidor.py`, debes instalar las librerías estándar necesarias mediante `pip`:
+Antes de ejecutar `servidor.py`, debes instalar las librerías:
 
 ```bash
-pip install pathlib
-pip install httpserver
-pip install urllib3
+pip install edge-tts requests pathlib urllib3
 ```
-
-> **Nota:** Estas librerías forman parte de la biblioteca estándar de Python, pero algunos entornos requieren instalarlas explícitamente.
 
 Estas son usadas dentro del servidor:
 
@@ -37,71 +33,82 @@ from urllib.parse import urlparse, parse_qs, unquote
 
 ## ⚙️ 2. Configuración inicial
 
-Antes de ejecutar la aplicación debes editar el archivo:
+Crea una copia de  `Configuration.properties.example` y nombrala `Configuration.properties`:
 
 ```
-Configuration.properties
+[ElevenLabs]
+key = TU_API_KEY_AQUI
+voice = TU_VOICE_ID_AQUI
 ```
 
-Introduce:
+### 🔑 API Key de ElevenLabs
+1. https://elevenlabs.io/app → **Profile** → **API Keys**
+2. Copia la clave y pégala en `key=`
 
-- `key` → Tu clave privada de ElevenLabs  
-- `voice` → El identificador de la voz que vayas a utilizar
+### 🗣️ Voice ID recomendado
+Usa este enlace para crear voz similar: [Prompt para crear la voz en ElevenLabs](https://elevenlabs.io/app/voice-lab?action=create&creationType=voiceDesign&prompt=Middle-aged+Spanish+male+voice+from+Spain,+Castilian+accent+(peninsular).+Deep,+smooth+and+resonant+baritone.+Mature,+wise+and+mysterious+tone.+Calm+and+deliberate+pacing+with+natural+gravitas.+Storytelling+quality+—+like+an+experienced+narrator+of+epic+fantasy+audiobooks.+Slightly+low+pitch,+clear+articulation,+subtle+rasp.+Not+theatrical+or+over-dramatic,+but+deeply+immersive+and+authoritative.&previewText=El+hedor+de+la+muerte+y+la+carne+podrida+se+hace+más+intenso+a+medida+que+os+alejáis+de+los+cadáveres+de+vuestros+enemigos+y+os+adentráis+en+el+subterráneo+del+túmulo.&seed=380245&loudness=0.5&guidanceScale=5)
 
-### 🔑 ¿Cómo obtener tu API Key de ElevenLabs?
+Copia el **Voice ID** a `voice=`
 
-1. Accede a: https://elevenlabs.io/app  
-2. En el menú lateral, ve a **"Profile"**.  
-3. En **"API Keys"**, genera una nueva clave o copia la existente.
-4. Pega el valor en `Configuration.properties`:
+---
+
+## ▶️ 3. **media/** - Archivos multimedia
 
 ```
-api_key=TU_API_KEY_AQUI
-voice_id=EL_VOICE_ID_QUE_CORRESPONDA
+media/
+├── audio/                 ← MP3 narrados (sc1/introduccion.mp3)
+├── gloomhaven_data.json   ← Textos de escenarios
+└── Libro_de_escenarios... ← PDF original
 ```
 
 ---
 
-## 🗣️ 3. Obtener tu Voice ID
-
-Para generar una voz similar a la de este proyecto, usa el siguiente enlace (Voice Design):
-
-👉 **https://elevenlabs.io/app/voice-lab?action=create&creationType=voiceDesign&prompt=Middle-aged+Spanish+male+voice+from+Spain,+Castilian+accent+(peninsular).+Deep,+smooth+and+resonant+baritone.+Mature,+wise+and+mysterious+tone.+Calm+and+deliberate+pacing+with+natural+gravitas.+Storytelling+quality+—+like+an+experienced+narrator+of+epic+fantasy+audiobooks.+Slightly+low+pitch,+clear+articulation,+subtle+rasp.+Not+theatrical+or+over-dramatic,+but+deeply+immersive+and+authoritative.&previewText=La+colina+es+bastante+fácil+de+encontrar,+un%0Abreve+trayecto+después+de+pasar+por+la+Puerta%0Adel+Mercado+Nuevo+(New+Market+Gate)%0Ay+alcanzas+a+verla+sobresaliendo+en+la+linde%0Adel+Bosque+Cadavérico+(Coprsewood),+como%0Auna+rata+que+asoma+bajo+una+alfombra.&seed=41146&loudness=0.5&guidanceScale=5**
-
-Después de crearla:
-
-1. En tu panel, entra en **"Voices"**.  
-2. Selecciona la voz generada.  
-3. Copia el **Voice ID**.  
-4. Colócalo en `Configuration.properties`.
-
----
-
-## ▶️ 4. Ejecutar el servidor local
-
-Con la configuración completa, ejecuta:
+## 🚀 4. Ejecutar servidor
 
 ```bash
 python servidor.py
 ```
 
-Esto iniciará el servidor local que convierte texto en audio usando ElevenLabs.
+Servidor en http://localhost:7532
 
 ---
 
-## 🌐 5. Abrir la interfaz web
+## 🌐 5. Interfaz web
 
-Con el servidor funcionando, abre el archivo:
+Abre `gloomhaven.html` en navegador.
 
-```
-gloomhaven.html
-```
-
-Se abrirá en cualquier navegador y estará listo para usarse.
+**Funciona con:**
+- Audio local: media/audio/sc1/conclusion.mp3
+- ElevenLabs (tiempo real)
+- Edge TTS (fallback gratis)
 
 ---
 
-## 🎉 ¡Listo!
+## 🔄 Generar audio masivo (opcional)
 
-Tu aplicación está completamente configurada y funcionando con narración personalizada.
+```bash
+# Nuevo escenario 43
+python generar_audio.py --api-key TU_KEY --voice-id TU_VID --sc-list 43
 
+# Todos desde sc10
+python generar_audio.py --api-key TU_KEY --voice-id TU_VID --from-sc 10
+
+# Simular (sin créditos)
+python generar_audio.py ... --dry-run
+```
+
+**Salida:** `media/audio/sc43/conclusion.mp3` + manifest.json
+
+---
+
+## 🎉 ¡Listo! ✅
+
+✅ Scripts movidos a **server/**
+✅ Servidor sirve desde **media/**
+✅ UI funciona sin cambios (localhost:7532)
+
+**Probar:** 
+1. `cd server && python servidor.py`
+2. Abrir `gloomhaven.html` → SC#1 → ▶ "Leer"
+
+**Refactor completado**

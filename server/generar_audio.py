@@ -59,7 +59,7 @@ except ImportError:
 # ══════════════════════════════════════════════════════════════════════════
 
 config = configparser.RawConfigParser()
-config.read('Configuration.properties')
+config.read('../conf/Configuration.properties')
 
 details_dict = dict(config.items('ElevenLabs'))
 
@@ -270,10 +270,8 @@ def main():
                         help="API key de ElevenLabs (o env ELEVEN_API_KEY)")
     parser.add_argument("--voice-id", default=os.environ.get("ELEVEN_VOICE_ID", ELEVEN_VOICE_ID),
                         help="ID de la voz elegida en ElevenLabs")
-    parser.add_argument("--data",     default="gloomhaven_data.json",
-                        help="Ruta al JSON de escenarios (default: gloomhaven_data.json)")
-    parser.add_argument("--out",      default="audio",
-                        help="Directorio de salida (default: audio/)")
+    parser.add_argument("--data",     default="../media/gloomhaven_data.json", help="Ruta al JSON de escenarios (default: media/gloomhaven_data.json)")
+    parser.add_argument("--out",      default="../media/audio", help="Directorio de salida (default: media/audio/)")
     parser.add_argument("--sc-list",  default="",
                         help="Escenarios concretos separados por comas (ej: 43 o 1,5,12). "
                              "Si se indica, --from-sc se ignora.")
@@ -355,3 +353,4 @@ Gloomhaven — Generador de audio ElevenLabs
 
 if __name__ == "__main__":
     main()
+
