@@ -1,0 +1,39 @@
+{
+  "95": {
+    "nombre": "Payment Due",
+    "secciones": {
+      "introduccion": "sc95\\introduccion.mp3",
+      "introduccion_2": "sc95\\introduccion_2.mp3",
+      "conclusion": "sc95\\conclusion.mp3"
+    }
+  },
+  "1": {
+    "nombre": "Black Barrow",
+    "secciones": {
+      "conclusion": "sc1\\conclusion.mp3",
+      "introduccion": "sc1\\introduccion.mp3",
+      "introduccion_2": "sc1\\introduccion_2.mp3"
+    }
+  },
+  "3": {
+    "nombre": "Inox Encampment",
+    "secciones": {
+      "conclusion": "sc3\\conclusion.mp3",
+      "introduccion": "sc3\\introduccion.mp3"
+    }
+  },
+  "43": {
+    "nombre": "Drake Nest",
+    "secciones": {
+      "conclusion": "sc43\\conclusion.mp3",
+      "introduccion": "sc43\\introduccion.mp3"
+    }
+  },
+  "53": {
+    "nombre": "Crypt Basement",
+    "secciones": {
+      "conclusion": "sc53\\conclusion.mp3",
+      "introduccion": "sc53\\introduccion.mp3"
+    }
+  }
+}
