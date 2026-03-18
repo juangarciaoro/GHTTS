@@ -98,17 +98,3 @@ python generar_audio.py ... --dry-run
 ```
 
 **Salida:** `media/audio/sc43/conclusion.mp3` + manifest.json
-
----
-
-## 🎉 ¡Listo! ✅
-
-✅ Scripts movidos a **server/**
-✅ Servidor sirve desde **media/**
-✅ UI funciona sin cambios (localhost:7532)
-
-**Probar:** 
-1. `cd server && python servidor.py`
-2. Abrir `gloomhaven.html` → SC#1 → ▶ "Leer"
-
-**Refactor completado**
