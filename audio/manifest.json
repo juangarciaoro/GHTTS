@@ -35,5 +35,12 @@
       "conclusion": "sc53\\conclusion.mp3",
       "introduccion": "sc53\\introduccion.mp3"
     }
+  },
+  "68": {
+    "nombre": "Toxic Moor",
+    "secciones": {
+      "introduccion": "sc68\\introduccion.mp3",
+      "conclusion": "sc68\\conclusion.mp3"
+    }
   }
 }
