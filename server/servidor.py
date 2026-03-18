@@ -64,13 +64,13 @@ except ImportError:
 # ══════════════════════════════════════════════════════════════════════════
 
 config = configparser.RawConfigParser()
-config.read('Configuration.properties')
+config.read('../conf/Configuration.properties')
 
 details_dict = dict(config.items('ElevenLabs'))
 
 PORT      = 7532
 BASE_DIR  = Path(__file__).parent.resolve()
-AUDIO_DIR = BASE_DIR / "audio"   # directorio con MP3 pregenerados por generar_audio.py
+AUDIO_DIR = BASE_DIR.parent / "media/audio"   # directorio con MP3 pregenerados por generar_audio.py
 
 # ── Configuración ElevenLabs ──────────────────────────────────────────────
 ELEVEN_API_KEY  = details_dict['key']   # ← pega aquí tu API key de ElevenLabs
@@ -310,7 +310,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             # Obtener el texto de la sección desde el JSON de escenarios
-            data_path = BASE_DIR / "gloomhaven_data.json"
+            data_path = BASE_DIR.parent / "media/gloomhaven_data.json"
             if not data_path.exists():
                 self.send_response(503); self.end_headers(); return
             with open(data_path, encoding="utf-8") as f_data:
