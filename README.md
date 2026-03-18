@@ -46,7 +46,8 @@ voice = TU_VOICE_ID_AQUI
 2. Copia la clave y pégala en `key=`
 
 ### 🗣️ Voice ID recomendado
-Usa este enlace para crear voz similar: https://elevenlabs.io/app/voice-lab?... (ver archivo original)
+Usa este enlace para crear voz similar: [Prompt para crear la voz en ElevenLabs](https://elevenlabs.io/app/voice-lab?action=create&creationType=voiceDesign&prompt=Middle-aged+Spanish+male+voice+from+Spain,+Castilian+accent+(peninsular).+Deep,+smooth+and+resonant+baritone.+Mature,+wise+and+mysterious+tone.+Calm+and+deliberate+pacing+with+natural+gravitas.+Storytelling+quality+—+like+an+experienced+narrator+of+epic+fantasy+audiobooks.+Slightly+low+pitch,+clear+articulation,+subtle+rasp.+Not+theatrical+or+over-dramatic,+but+deeply+immersive+and+authoritative.&previewText=El+hedor+de+la+muerte+y+la+carne+podrida+se+hace+más+intenso+a+medida+que+os+alejáis+de+los+cadáveres+de+vuestros+enemigos+y+os+adentráis+en+el+subterráneo+del+túmulo.&seed=380245&loudness=0.5&guidanceScale=5)
+
 Copia el **Voice ID** a `voice=`
 
 ---
