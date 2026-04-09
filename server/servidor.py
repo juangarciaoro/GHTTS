@@ -424,27 +424,32 @@ if __name__ == "__main__":
 
     mode_lines = []
     if has_local:
-        mode_lines.append(f"  ✓ Audio local  : {local_count} archivos en {AUDIO_DIR}/")
+        mode_lines.append(f"  [OK] Audio local  : {local_count} archivos en {AUDIO_DIR}/")
     else:
-        mode_lines.append(f"  ✗ Audio local  : no encontrado (ejecuta generar_audio.py)")
+        mode_lines.append(f"  [--] Audio local  : no encontrado (ejecuta generar_audio.py)")
     if has_eleven:
-        mode_lines.append(f"  ✓ ElevenLabs   : voice_id={ELEVEN_VOICE_ID[:12]}...")
+        mode_lines.append(f"  [OK] ElevenLabs   : voice_id={ELEVEN_VOICE_ID[:12]}...")
     else:
-        mode_lines.append(f"  ✗ ElevenLabs   : no configurado (ELEVEN_API_KEY / ELEVEN_VOICE_ID)")
-    mode_lines.append(f"  ✓ Edge TTS     : fallback activo (Álvaro / Elvira Neural)")
+        mode_lines.append(f"  [--] ElevenLabs   : no configurado (ELEVEN_API_KEY / ELEVEN_VOICE_ID)")
+    mode_lines.append(f"  [OK] Edge TTS     : fallback activo (Alvaro / Elvira Neural)")
 
-    print(f"""
-┌──────────────────────────────────────────────────┐
-│        Gloomhaven TTS — servidor.py              │
-│        http://localhost:{PORT}                     │
-├──────────────────────────────────────────────────┤
-│ Modos activos:                                   │
-""" + "\n".join(f"│ {l:<49}│" for l in mode_lines) + """
-└──────────────────────────────────────────────────┘
-  Ctrl+C para detener.
-""")
+    print("-" * 52)
+    print(f"       Gloomhaven TTS - servidor.py")
+    print(f"       http://localhost:{PORT}")
+    print("-" * 52)
+    print(" Modos activos:")
+    print("\n".join(f" - {l}" for l in mode_lines))
+    print("-" * 52)
+    print("  Ctrl+C para detener.\n")
 
     server = HTTPServer(("localhost", PORT), Handler)
+    
+    import webbrowser
+    html_file = BASE_DIR.parent / "gloomhaven.html"
+    if html_file.exists():
+        print(f"Abriendo {html_file.name} en el navegador...")
+        webbrowser.open(html_file.resolve().as_uri())
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:
