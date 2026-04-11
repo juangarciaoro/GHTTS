@@ -10,11 +10,8 @@
 <header>
   <button class="btn-header-toggle" id="btnToggle" onclick="toggleSidebar()" title="Mostrar/ocultar lista">&#9776;</button>
   <div class="header-divider"></div>
-  <img class="header-logo" src="assets/header-logo.svg" alt="Logo Gloomhaven" width="44" height="44" />
-  <div class="header-text">
-    <h1>Gloomhaven</h1>
-    <small>Libro de Escenarios</small>
-  </div>
+  <img class="header-logo" src="assets/gh-logo.png" alt="Gloomhaven" />
+  <span class="header-subtitle">Libro de Escenarios</span>
   <button class="immersive-btn" id="btnImmersive" onclick="toggleImmersive()" style="margin-left:auto;" title="Modo inmersivo — oculta todo excepto el texto">⛶ Inmersivo</button>
 </header>
 <button class="immersive-exit" onclick="toggleImmersive()">✕ Salir</button>
@@ -33,6 +30,7 @@
         <button class="btn dl" id="btnDl" onclick="downloadScAudio()" style="display:none">&#8595; Descargar audio</button>
       </div>
     </div>
+    <div class="music-fab" id="musicFab" title="Música" onclick="toggleMusicBar()"><img src="assets/lute.svg" alt="Música" class="music-fab-icon" /></div>
     <div class="tabs" id="tabs"></div>
     <div class="prog"><div class="prog-fill" id="prog"></div></div>
     <div class="content" id="content">
@@ -48,7 +46,7 @@
 <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
 <button class="btn-top" id="btnTop" onclick="document.getElementById('content').scrollTo({top:0,behavior:'smooth'})">&#8679;</button>
 <div id="banner" class="banner"></div>
-<div class="music-fab" id="musicFab" title="Música" onclick="toggleMusicBar()"><img src="assets/lute.svg" alt="Música" class="music-fab-icon" /></div>
+<!-- music-fab movido dentro de .main -->
 <div class="music-bar" id="musicBar">
   <span class="music-label">🎵</span>
   <span class="music-title" id="musicTitle">Sin música</span>

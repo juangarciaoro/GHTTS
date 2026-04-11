@@ -1,7 +1,7 @@
 /* Icono SVG del botón de música */
 .music-fab-icon {
-  width: 1.7em;
-  height: 1.7em;
+  width: 1.1em;
+  height: 1.1em;
   display: block;
   color: var(--accent2);
   filter: none;
@@ -77,10 +77,34 @@ header::after {
   background: linear-gradient(90deg, transparent 0%, var(--accent) 20%, var(--accent2) 50%, var(--accent) 80%, transparent 100%);
 }
 .header-logo {
-  display:flex; align-items:center; justify-content:center;
-  width:44px; height:44px; flex-shrink:0;
-  margin-right:14px;
-  filter: drop-shadow(0 0 8px rgba(200,146,42,.5));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60px;
+  max-width: 320px;
+  width: auto;
+  margin-right: 18px;
+  filter: drop-shadow(0 0 14px rgba(200,146,42,.5));
+  object-fit: contain;
+}
+
+.header-subtitle {
+  display: flex;
+  align-items: center;
+  font-family: 'Pirata One', Georgia, serif;
+  font-size: .75em;
+  color: var(--muted);
+  letter-spacing: .5px;
+  text-shadow: none;
+  margin-left: 6px;
+  font-weight: normal;
+  opacity: 1;
+  border: 1px solid transparent;
+  padding: 5px 10px;
+  border-radius: 5px;
+  background: none;
+  transition: .15s;
+  white-space: nowrap;
 }
 .header-text { display:flex; flex-direction:column; justify-content:center; }
 header h1 {
@@ -340,8 +364,11 @@ header small { color:var(--muted); font-size:.68em; letter-spacing:1.5px; text-t
     animation: fadeIn .4s ease;
   }
   .welcome-emblem {
-    width:100px; height:100px; margin-bottom:24px; opacity:0.8;
-    filter: drop-shadow(0 0 18px rgba(200,146,42,.5));
+    width:180px;
+    height:180px;
+    margin-bottom:32px;
+    opacity:0.85;
+    filter: drop-shadow(0 0 24px rgba(200,146,42,.5));
     /* Puedes ajustar aquí para diferenciar visualmente si lo deseas */
   }
   .welcome h2 {
@@ -405,6 +432,8 @@ header small { color:var(--muted); font-size:.68em; letter-spacing:1.5px; text-t
   body.immersive .sidebar-overlay { display:none !important; }
   body.immersive .music-bar,
   body.immersive .music-fab {
+    position: absolute;
+    top: calc(var(--controls-h) + 40px);
     filter: grayscale(0.55) brightness(0.7) opacity(0.7);
     pointer-events: auto;
     border: none;
@@ -512,37 +541,39 @@ header small { color:var(--muted); font-size:.68em; letter-spacing:1.5px; text-t
   }
 
   /* ── MÚSICA AMBIENTAL ── */
-  .music-bar {
-    position: fixed;
-    top: 10vh;
-    right: -480px;
-    z-index: 120;
-    background: linear-gradient(120deg, rgba(35,26,13,0.48) 60%, rgba(30,21,8,0.36) 100%);
-    border-radius: 18px 0 0 18px;
-    box-shadow: 0 6px 32px 0 rgba(0,0,0,0.45), 0 1.5px 0 var(--accent2);
-    border: 1.5px solid var(--border);
-    padding: 16px 24px 16px 20px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    flex-shrink: 0;
-    flex-wrap: wrap;
-    min-width: 260px;
-    max-width: 420px;
-    transition: right 0.35s cubic-bezier(.7,0,.3,1), box-shadow .25s, background .25s, opacity .4s;
-    opacity: 0.98;
-    backdrop-filter: blur(2.5px);
-    height: auto;
-  }
-  .music-bar.open {
-    right: 0;
+      .music-bar {
+        position: absolute;
+        top: calc(var(--controls-h) + 40px);
+        right: -480px;
+        z-index: 120;
+        background: linear-gradient(120deg, rgba(35,26,13,0.48) 60%, rgba(30,21,8,0.36) 100%);
+        border-radius: 18px 0 0 18px;
+        box-shadow: 0 6px 32px 0 rgba(0,0,0,0.45), 0 1.5px 0 var(--accent2);
+        border: 1.5px solid var(--border);
+        padding: 16px 24px 16px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
+        flex-wrap: wrap;
+        min-width: 260px;
+        max-width: 420px;
+        transition: right 0.35s cubic-bezier(.7,0,.3,1), box-shadow .25s, background .25s, opacity .4s;
+        opacity: 0.98;
+        backdrop-filter: blur(2.5px);
+        height: auto;
+        pointer-events: none;
+      }
+      .music-bar.open {
+        right: 0;
+        pointer-events: auto;
   }
 
   .music-fab {
-    position: fixed;
-    top: 10vh;
-    right: 0;
-    z-index: 121;
+    position: absolute;
+    top: calc(var(--controls-h));
+    right: 10px;
+    z-index: 10;
     width: 48px;
     height: 48px;
     border-radius: 0 0 0 10px;
@@ -596,21 +627,24 @@ header small { color:var(--muted); font-size:.68em; letter-spacing:1.5px; text-t
   ════════════════════════════════════════════ */
   @media (max-width: 639px) {
     .music-bar {
+      position: absolute;
       right: -100vw;
       left: auto;
-      top: 16vh;
+      top: 0;
       max-width: 98vw;
       min-width: 0;
       border-radius: 14px 0 0 14px;
       padding: 8px 6px 8px 10px;
       gap: 7px;
+      z-index: 120;
     }
     .music-bar.open {
       right: 0;
     }
     .music-fab {
+      position: absolute;
       right: 0;
-      top: 16vh;
+      top: 0;
       width: 44px;
       height: 44px;
       font-size: 1.5em;
@@ -623,6 +657,7 @@ header small { color:var(--muted); font-size:.68em; letter-spacing:1.5px; text-t
       box-shadow: none;
       outline: none;
       transition: background .2s, border-color .2s, color .2s, opacity .2s;
+      z-index: 10;
     }
     .music-fab.hide {
       opacity: 0;
