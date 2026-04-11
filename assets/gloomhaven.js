@@ -1,3 +1,26 @@
+// ── ISLA DE MÚSICA FLOTANTE ─────────────────────────────────────────────
+function toggleMusicBar() {
+  const bar = document.getElementById('musicBar');
+  const fab = document.getElementById('musicFab');
+  const isOpen = bar.classList.toggle('open');
+  // Forzar reflow para asegurar la transición
+  void bar.offsetWidth;
+  if (isOpen) {
+    setTimeout(() => fab.classList.add('hide'), 10);
+  } else {
+    fab.classList.remove('hide');
+  }
+}
+// Cierra la barra si se hace click fuera de ella
+document.addEventListener('mousedown', function(e) {
+  const bar = document.getElementById('musicBar');
+  const fab = document.getElementById('musicFab');
+  if (!bar.classList.contains('open')) return;
+  if (!bar.contains(e.target)) {
+    bar.classList.remove('open');
+    setTimeout(() => fab.classList.remove('hide'), 180);
+  }
+});
 let DATA = null;
 let NUMS = [];
 const TTS_URL = 'http://localhost:7532';
