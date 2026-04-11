@@ -26,7 +26,7 @@ let NUMS = [];
 // En producción dejamos TTS_URL vacío para usar rutas relativas (/api/...) en el dominio desplegado.
 // Para pruebas locales con el servidor Python deja 'http://localhost:7532'
 const TTS_URL = '';
-let cur=null, secIdx=0, playing=false, audio=null, rate=0.9;
+let cur=null, secIdx=0, playing=false, audio=null, pendingPlayTimeout=null, pendingCanplayListener=null, pendingFallbackTimeout=null, rate=0.9;
 let ttsMode='browser';
 // Credenciales introducidas por el usuario en el flujo de descarga
 let userElevenApiKey = null;
@@ -346,7 +346,26 @@ async function startPiper(text) {
       };
       audio.onerror = function() { playing=false; markTab(false); updateBtns(); btnLoading(false); };
       btnLoading(false);
-      audio.play();
+
+      // Play after 'canplay' + 1s for smooth start; fallback after 2500ms
+      const onCanPlay = function() {
+        if (pendingFallbackTimeout) { clearTimeout(pendingFallbackTimeout); pendingFallbackTimeout = null; }
+        pendingPlayTimeout = setTimeout(function() {
+          if (audio) audio.play().catch(function(){});
+          pendingPlayTimeout = null;
+        }, 1000);
+        pendingCanplayListener = null;
+      };
+      pendingCanplayListener = onCanPlay;
+      audio.addEventListener('canplay', onCanPlay);
+      // Fallback in case canplay doesn't fire in time
+      pendingFallbackTimeout = setTimeout(function() {
+        if (!pendingPlayTimeout) {
+          if (audio) audio.play().catch(function(){});
+        }
+        pendingFallbackTimeout = null;
+      }, 2500);
+
       return;
     }
   } catch (e) {
@@ -374,7 +393,24 @@ async function startPiper(text) {
     };
     audio.onerror = function() { playing=false; markTab(false); updateBtns(); btnLoading(false); };
     btnLoading(false);
-    audio.play();
+
+    // Play after 'canplay' + 1s for smooth start; fallback after 2500ms
+    const onCanPlayFallback = function() {
+      if (pendingFallbackTimeout) { clearTimeout(pendingFallbackTimeout); pendingFallbackTimeout = null; }
+      pendingPlayTimeout = setTimeout(function() {
+        if (audio) audio.play().catch(function(){});
+        pendingPlayTimeout = null;
+      }, 1000);
+      pendingCanplayListener = null;
+    };
+    pendingCanplayListener = onCanPlayFallback;
+    audio.addEventListener('canplay', onCanPlayFallback);
+    pendingFallbackTimeout = setTimeout(function() {
+      if (!pendingPlayTimeout) {
+        if (audio) audio.play().catch(function(){});
+      }
+      pendingFallbackTimeout = null;
+    }, 2500);
   } catch (err) {
     playing=false; markTab(false); updateBtns(); btnLoading(false);
     banner('Error al conectar con Edge TTS. ¿Está el servidor en marcha?', 'warn');
@@ -398,6 +434,10 @@ function startBrowser(text) {
 }
 
 function stop() {
+  if (pendingPlayTimeout) { clearTimeout(pendingPlayTimeout); pendingPlayTimeout = null; }
+  if (pendingFallbackTimeout) { clearTimeout(pendingFallbackTimeout); pendingFallbackTimeout = null; }
+  if (pendingCanplayListener && audio) { try { audio.removeEventListener('canplay', pendingCanplayListener); } catch(e) {} }
+  pendingCanplayListener = null;
   if (audio) { audio.pause(); audio.src = ''; audio = null; }
   if (window.speechSynthesis) speechSynthesis.cancel();
   playing = false; markTab(false); updateBtns(); btnLoading(false);
