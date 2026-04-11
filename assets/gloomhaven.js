@@ -23,7 +23,9 @@ document.addEventListener('mousedown', function(e) {
 });
 let DATA = null;
 let NUMS = [];
-const TTS_URL = 'http://localhost:7532';
+// En producción dejamos TTS_URL vacío para usar rutas relativas (/api/...) en el dominio desplegado.
+// Para pruebas locales con el servidor Python deja 'http://localhost:7532'
+const TTS_URL = '';
 let cur=null, secIdx=0, playing=false, audio=null, rate=0.9;
 let ttsMode='browser';
 // Credenciales introducidas por el usuario en el flujo de descarga
