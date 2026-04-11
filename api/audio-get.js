@@ -22,7 +22,8 @@ export default async function handler(req, res) {
     // Create a short-lived signed URL and proxy the file to avoid CORS/public-bucket issues
     const { data: signed, error: signErr } = await supabase.storage.from(BUCKET).createSignedUrl(filePath, 60);
     if (signErr || !signed || !signed.signedURL) {
-      return res.status(404).json({ error: 'not_found' });
+      console.error('createSignedUrl failed', signErr);
+      return res.status(404).json({ error: 'not_found', details: signErr ? (signErr.message || String(signErr)) : 'no_signed_url' });
     }
 
     const r = await fetch(signed.signedURL);
