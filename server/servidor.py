@@ -211,6 +211,46 @@ class Handler(BaseHTTPRequestHandler):
         p  = urlparse(self.path)
         qs = parse_qs(p.query)
 
+        # ── SERVIR ARCHIVOS ESTÁTICOS ─────────────────────────────────────
+        # Permite servir cualquier archivo desde la raíz del proyecto
+        static_root = BASE_DIR.parent
+        static_path = (static_root / p.path.lstrip("/")).resolve()
+        # Seguridad: no permitir salir de la raíz
+        if static_path.is_file() and str(static_path).startswith(str(static_root)):
+            # Determinar el tipo de contenido
+            if static_path.suffix in ['.html', '.htm']:
+                ctype = 'text/html; charset=utf-8'
+            elif static_path.suffix == '.css':
+                ctype = 'text/css; charset=utf-8'
+            elif static_path.suffix == '.js':
+                ctype = 'application/javascript; charset=utf-8'
+            elif static_path.suffix == '.json':
+                ctype = 'application/json; charset=utf-8'
+            elif static_path.suffix in ['.ttf', '.otf']:
+                ctype = 'font/ttf'
+            elif static_path.suffix == '.svg':
+                ctype = 'image/svg+xml'
+            elif static_path.suffix in ['.jpg', '.jpeg']:
+                ctype = 'image/jpeg'
+            elif static_path.suffix == '.png':
+                ctype = 'image/png'
+            elif static_path.suffix == '.mp3':
+                ctype = 'audio/mpeg'
+            else:
+                ctype = 'application/octet-stream'
+            try:
+                with open(static_path, 'rb') as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(content)))
+                self.cors(); self.end_headers()
+                self.wfile.write(content)
+            except Exception as e:
+                self.send_response(500); self.end_headers()
+                self.wfile.write(f"Error leyendo archivo: {e}".encode())
+            return
+
         # ── GET /voices ───────────────────────────────────────────────────
         if p.path == "/voices":
             voices = []
@@ -449,8 +489,8 @@ if __name__ == "__main__":
     # Abrir gloomhaven.html una sola vez
     html_path = BASE_DIR.parent / "gloomhaven.html"
     if html_path.exists():
-        print(f"Abriendo {html_path.name} en el navegador...")
-        webbrowser.open(html_path.resolve().as_uri())
+        print(f"Abriendo gloomhaven.html en http://localhost:{PORT}/gloomhaven.html ...")
+        webbrowser.open(f"http://localhost:{PORT}/gloomhaven.html")
     else:
         print(f"ADVERTENCIA: gloomhaven.html no encontrado en {html_path}")
 
