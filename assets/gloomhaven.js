@@ -318,16 +318,47 @@ async function downloadScAudio() {
   await refreshAudioIndicator();
 }
 
-function startPiper(text) {
+async function startPiper(text) {
   const vk = 'alvaro'; // voz fija Edge TTS
   const sec = DATA[cur] && DATA[cur].secciones[secIdx];
   const secSlug = sec ? slugify(sec.titulo) : '';
-  const url = TTS_URL+'/tts?voice='+encodeURIComponent(vk)+'&speed='+rate+'&sc='+encodeURIComponent(cur||'')+'&sec='+encodeURIComponent(secSlug)+'&text='+encodeURIComponent(text);
+  const audioGetEndpoint = TTS_URL.includes('localhost') ? '/audio-get' : '/api/audio-get';
+  const audioGetUrl = TTS_URL.replace(/\/$/, '') + audioGetEndpoint + '?sc=' + encodeURIComponent(cur||'') + '&sec=' + encodeURIComponent(secSlug);
+
   playing = true; updateBtns(); markTab(true); btnLoading(true);
-  fetch(url).then(function(resp) {
+  // Try stored MP3 first
+  try {
+    const r = await fetch(audioGetUrl);
+    if (r.ok) {
+      const blob = await r.blob();
+      const src = URL.createObjectURL(blob);
+      audio = new Audio(src);
+      audio.onended = function() {
+        playing = false; markTab(false); updateBtns(); btnLoading(false);
+        document.getElementById('content').classList.remove('tts-playing');
+        URL.revokeObjectURL(src);
+      };
+      audio.ontimeupdate = function() {
+        if (!audio || !audio.duration) return;
+        const pct = (audio.currentTime / audio.duration) * 100;
+        const bar = document.getElementById('audioProgBar');
+        if (bar) bar.style.width = pct + '%';
+      };
+      audio.onerror = function() { playing=false; markTab(false); updateBtns(); btnLoading(false); };
+      btnLoading(false);
+      audio.play();
+      return;
+    }
+  } catch (e) {
+    // ignore and fall back to Edge TTS
+  }
+
+  // Fallback to Edge TTS server
+  const url = TTS_URL + '/tts?voice=' + encodeURIComponent(vk) + '&speed=' + rate + '&sc=' + encodeURIComponent(cur||'') + '&sec=' + encodeURIComponent(secSlug) + '&text=' + encodeURIComponent(text);
+  try {
+    const resp = await fetch(url);
     if (!resp.ok) throw new Error('fail');
-    return resp.blob();
-  }).then(function(blob) {
+    const blob = await resp.blob();
     const src = URL.createObjectURL(blob);
     audio = new Audio(src);
     audio.onended = function() {
@@ -344,10 +375,10 @@ function startPiper(text) {
     audio.onerror = function() { playing=false; markTab(false); updateBtns(); btnLoading(false); };
     btnLoading(false);
     audio.play();
-  }).catch(function() {
+  } catch (err) {
     playing=false; markTab(false); updateBtns(); btnLoading(false);
     banner('Error al conectar con Edge TTS. ¿Está el servidor en marcha?', 'warn');
-  });
+  }
 }
 
 function startBrowser(text) {
