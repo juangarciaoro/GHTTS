@@ -26,6 +26,9 @@ let NUMS = [];
 const TTS_URL = 'http://localhost:7532';
 let cur=null, secIdx=0, playing=false, audio=null, rate=0.9;
 let ttsMode='browser';
+// Credenciales introducidas por el usuario en el flujo de descarga
+let userElevenApiKey = null;
+let userElevenVoiceId = null;
 
 async function loadScenarioData() {
   try {
@@ -44,7 +47,8 @@ document.addEventListener('DOMContentLoaded', loadScenarioData);
 // ── Edge TTS server check ─────────────────────────────────────────────────
 async function checkPiper() {
   try {
-    const r = await fetch(TTS_URL+'/voices', {signal: AbortSignal.timeout(1800)});
+    const endpoint = TTS_URL.includes('localhost') ? '/voices' : '/api/voices';
+    const r = await fetch(TTS_URL.replace(/\/$/, '') + endpoint, {signal: AbortSignal.timeout(1800)});
     if (r.ok) {
       ttsMode = 'piper';
       banner('Servidor TTS activo', 'ok');
@@ -199,7 +203,8 @@ async function scAudioReady(scNum) {
   const secs = DATA[scNum] ? DATA[scNum].secciones : [];
   for (const s of secs) {
     const slug = slugify(s.titulo);
-    const url  = TTS_URL + '/audio-check?sc=' + encodeURIComponent(scNum) + '&sec=' + encodeURIComponent(slug);
+    const endpoint = TTS_URL.includes('localhost') ? '/audio-check' : '/api/audio-check';
+    const url  = TTS_URL.replace(/\/$/, '') + endpoint + '?sc=' + encodeURIComponent(scNum) + '&sec=' + encodeURIComponent(slug);
     try {
       const r = await fetch(url, { signal: AbortSignal.timeout(2000) });
       if (!r.ok) return false;
@@ -237,7 +242,8 @@ async function secAudioReady() {
   const sec  = DATA[cur] && DATA[cur].secciones[secIdx];
   if (!sec) return false;
   const slug = slugify(sec.titulo);
-  const url  = TTS_URL + '/audio-check?sc=' + encodeURIComponent(cur) + '&sec=' + encodeURIComponent(slug);
+  const endpoint = TTS_URL.includes('localhost') ? '/audio-check' : '/api/audio-check';
+  const url  = TTS_URL.replace(/\/$/, '') + endpoint + '?sc=' + encodeURIComponent(cur) + '&sec=' + encodeURIComponent(slug);
   try {
     const r = await fetch(url, { signal: AbortSignal.timeout(2000) });
     return r.ok;
@@ -251,6 +257,15 @@ async function downloadScAudio() {
   if (!cur) return;
   const btnDl = document.getElementById('btnDl');
   const dot   = document.getElementById('audioDot');
+  // Pedir credenciales si no se han proporcionado aún en esta sesión
+  if (!userElevenApiKey || !userElevenVoiceId) {
+    const key = prompt('Introduce tu ElevenLabs API Key (se usará solo en esta sesión):');
+    if (!key) { banner('Descarga cancelada: API Key requerida.', 'warn'); return; }
+    const vid = prompt('Introduce tu ElevenLabs VOICE ID:');
+    if (!vid) { banner('Descarga cancelada: Voice ID requerida.', 'warn'); return; }
+    userElevenApiKey = key.trim();
+    userElevenVoiceId = vid.trim();
+  }
 
   btnDl.classList.add('busy');
   btnDl.textContent = '⏳ Descargando...';
@@ -261,9 +276,21 @@ async function downloadScAudio() {
 
   for (const s of secs) {
     const slug = slugify(s.titulo);
-    const url  = TTS_URL + '/download?sc=' + encodeURIComponent(cur) + '&sec=' + encodeURIComponent(slug);
+    const endpoint = TTS_URL.includes('localhost') ? '/download' : '/api/download';
+    const url = TTS_URL.replace(/\/$/, '') + endpoint;
+    const payload = {
+      sc: cur,
+      sec: slug,
+      api_key: userElevenApiKey,
+      voice_id: userElevenVoiceId
+    };
     try {
-      const r = await fetch(url, { signal: AbortSignal.timeout(60000) });
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(60000)
+      });
       if (!r.ok) {
         const body = await r.json().catch(() => ({}));
         if (body.error === 'cost_warning' || body.error === 'no_config') {

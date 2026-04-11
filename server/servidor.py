@@ -66,15 +66,19 @@ except ImportError:
 config = configparser.RawConfigParser()
 config.read('../conf/Configuration.properties')
 
-details_dict = dict(config.items('ElevenLabs'))
+if config.has_section('ElevenLabs'):
+    details_dict = dict(config.items('ElevenLabs'))
+else:
+    details_dict = {}
+    print("ADVERTENCIA: sección 'ElevenLabs' no encontrada en conf/Configuration.properties. ELEVEN_API_KEY y ELEVEN_VOICE_ID quedan vacíos.")
 
 PORT      = 7532
 BASE_DIR  = Path(__file__).parent.resolve()
 AUDIO_DIR = BASE_DIR.parent / "media/audio"   # directorio con MP3 pregenerados por generar_audio.py
 
 # ── Configuración ElevenLabs ──────────────────────────────────────────────
-ELEVEN_API_KEY  = details_dict['key']   # ← pega aquí tu API key de ElevenLabs
-ELEVEN_VOICE_ID = details_dict['voice']   # ← Carmelo - Mysterious & Deep
+ELEVEN_API_KEY  = details_dict.get('key', '')   # ← pega aquí tu API key de ElevenLabs
+ELEVEN_VOICE_ID = details_dict.get('voice', '')   # ← Carmelo - Mysterious & Deep
 ELEVEN_MODEL    = "eleven_turbo_v2_5"
 ELEVEN_SETTINGS = {
     "stability":         0.55,
@@ -144,13 +148,18 @@ def serve_local(sc_num, sec_slug):
         print(f"  [serve_local] archivos en sc{sc_num}/: {files}")
     return None
 
-def synthesize_elevenlabs(text):
-    """Llama a ElevenLabs y devuelve bytes MP3 o None."""
-    if not HAS_REQUESTS or not ELEVEN_API_KEY or not ELEVEN_VOICE_ID:
+def synthesize_elevenlabs(text, api_key=None, voice_id=None):
+    """Llama a ElevenLabs y devuelve bytes MP3 o None.
+    Si se pasan `api_key` y `voice_id`, se usan esos valores en lugar
+    de las variables globales de configuración.
+    """
+    key = api_key or ELEVEN_API_KEY
+    vid = voice_id or ELEVEN_VOICE_ID
+    if not HAS_REQUESTS or not key or not vid:
         return None
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVEN_VOICE_ID}"
+    url = f"https://api.elevenlabs.io/v1/text-to-speech/{vid}"
     headers = {
-        "xi-api-key":   ELEVEN_API_KEY,
+        "xi-api-key":   key,
         "Content-Type": "application/json",
         "Accept":       "audio/mpeg",
     }
@@ -164,7 +173,7 @@ def synthesize_elevenlabs(text):
         if resp.status_code == 429:
             print("  [ElevenLabs] Rate limit — esperando 60s...")
             time.sleep(60)
-            return synthesize_elevenlabs(text)
+            return synthesize_elevenlabs(text, api_key=key, voice_id=vid)
         resp.raise_for_status()
         return resp.content
     except Exception as e:
@@ -200,7 +209,7 @@ class Handler(BaseHTTPRequestHandler):
     def end_headers(self):
         """Siempre añade CORS antes de cerrar los headers."""
         self.send_header("Access-Control-Allow-Origin",  "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         super().end_headers()
 
@@ -328,8 +337,10 @@ class Handler(BaseHTTPRequestHandler):
         # ── GET /download ─────────────────────────────────────────────────
         # Genera y guarda el MP3 de una sección via ElevenLabs
         if p.path == "/download":
-            sc_num   = qs.get("sc",  [""])[0].strip()
-            sec_slug = qs.get("sec", [""])[0].strip()
+            sc_num      = qs.get("sc",  [""])[0].strip()
+            sec_slug    = qs.get("sec", [""])[0].strip()
+            api_key_q   = qs.get("api_key", [""])[0].strip()
+            voice_id_q  = qs.get("voice_id", [""])[0].strip()
             if not sc_num or not sec_slug:
                 self.send_response(400); self.end_headers(); return
 
@@ -340,9 +351,13 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(200); self.cors(); self.end_headers()
                 return
 
-            # Verificar que ElevenLabs está configurado
-            if not ELEVEN_API_KEY or not ELEVEN_VOICE_ID:
-                body = json.dumps({"error": "no_config", "message": "ElevenLabs no configurado. Añade tu API key en servidor.py"}).encode()
+            # Determinar qué credenciales usar (parámetros de la petición > configuración)
+            api_key_to_use = api_key_q if api_key_q else ELEVEN_API_KEY
+            voice_id_to_use = voice_id_q if voice_id_q else ELEVEN_VOICE_ID
+
+            # Verificar que hay credenciales disponibles
+            if not api_key_to_use or not voice_id_to_use:
+                body = json.dumps({"error": "no_config", "message": "ElevenLabs no configurado. Proporciona api_key y voice_id en la petición."}).encode()
                 self.send_response(503)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
@@ -377,12 +392,12 @@ class Handler(BaseHTTPRequestHandler):
             if sec_text is None:
                 self.send_response(404); self.end_headers(); return
 
-            # Comprobar créditos disponibles antes de sintetizar
+            # Comprobar créditos disponibles antes de sintetizar (usar api_key_to_use)
             try:
                 import requests as _req
                 sub_resp = _req.get(
                     "https://api.elevenlabs.io/v1/user/subscription",
-                    headers={"xi-api-key": ELEVEN_API_KEY},
+                    headers={"xi-api-key": api_key_to_use},
                     timeout=10, verify=False
                 )
                 if sub_resp.ok:
@@ -406,7 +421,122 @@ class Handler(BaseHTTPRequestHandler):
 
             # Sintetizar con ElevenLabs y guardar
             print(f"  [/download] ElevenLabs SC#{sc_num} '{sec_slug}'...", end="", flush=True)
-            mp3 = synthesize_elevenlabs(sec_text)
+            mp3 = synthesize_elevenlabs(sec_text, api_key=api_key_to_use, voice_id=voice_id_to_use)
+            if mp3:
+                mp3_path.parent.mkdir(parents=True, exist_ok=True)
+                mp3_path.write_bytes(mp3)
+                print(f" OK ({len(mp3)//1024} KB)")
+                # Actualizar manifest.json
+                sc_nombre = sc.get("nombre", f"Escenario {sc_num}")
+                update_manifest(sc_num, sc_nombre, sec_slug, mp3_path)
+                self.send_response(200); self.end_headers()
+            else:
+                print(" ERROR")
+                self.send_response(500); self.end_headers()
+            return
+
+        self.send_response(404); self.end_headers()
+
+    def do_POST(self):
+        p = urlparse(self.path)
+        # Soportar POST /download con JSON: { sc, sec, api_key, voice_id }
+        if p.path == "/download":
+            # Leer body JSON
+            try:
+                length = int(self.headers.get('Content-Length', 0))
+            except Exception:
+                length = 0
+            try:
+                body_bytes = self.rfile.read(length) if length else b''
+                data = json.loads(body_bytes.decode('utf-8')) if body_bytes else {}
+            except Exception:
+                self.send_response(400); self.end_headers(); return
+
+            sc_num      = str(data.get('sc', '')).strip()
+            sec_slug    = str(data.get('sec', '')).strip()
+            api_key_q   = str(data.get('api_key', '')).strip()
+            voice_id_q  = str(data.get('voice_id', '')).strip()
+            if not sc_num or not sec_slug:
+                self.send_response(400); self.end_headers(); return
+
+            mp3_path = AUDIO_DIR / f"sc{sc_num}" / f"{sec_slug}.mp3"
+
+            # Si ya existe, no gastar créditos
+            if mp3_path.exists():
+                self.send_response(200); self.cors(); self.end_headers()
+                return
+
+            # Determinar qué credenciales usar (body > configuración)
+            api_key_to_use = api_key_q if api_key_q else ELEVEN_API_KEY
+            voice_id_to_use = voice_id_q if voice_id_q else ELEVEN_VOICE_ID
+
+            # Verificar que hay credenciales disponibles
+            if not api_key_to_use or not voice_id_to_use:
+                body = json.dumps({"error": "no_config", "message": "ElevenLabs no configurado. Proporciona api_key y voice_id en la petición."}).encode()
+                self.send_response(503)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(body)
+                return
+
+            # Obtener el texto de la sección desde el JSON de escenarios
+            data_path = BASE_DIR.parent / "media/gloomhaven_data.json"
+            if not data_path.exists():
+                self.send_response(503); self.end_headers(); return
+            with open(data_path, encoding="utf-8") as f_data:
+                sc_data = json.load(f_data)
+
+            sc = sc_data.get(sc_num)
+            if not sc:
+                self.send_response(404); self.end_headers(); return
+
+            # Buscar la sección por slug
+            import unicodedata as _ud
+            def _slugify(t):
+                t = _ud.normalize('NFD', t.lower())
+                t = ''.join(c for c in t if _ud.category(c) != 'Mn')
+                t = re.sub(r'[^a-z0-9]+', '_', t)
+                return t.strip('_')
+
+            sec_text = None
+            for s in sc.get("secciones", []):
+                if _slugify(s["titulo"]) == sec_slug:
+                    sec_text = s["texto"]
+                    break
+
+            if sec_text is None:
+                self.send_response(404); self.end_headers(); return
+
+            # Comprobar créditos disponibles antes de sintetizar (usar api_key_to_use)
+            try:
+                import requests as _req
+                sub_resp = _req.get(
+                    "https://api.elevenlabs.io/v1/user/subscription",
+                    headers={"xi-api-key": api_key_to_use},
+                    timeout=10, verify=False
+                )
+                if sub_resp.ok:
+                    sub = sub_resp.json()
+                    used      = sub.get("character_count", 0)
+                    limit     = sub.get("character_limit", 10000)
+                    remaining = limit - used
+                    chars     = len(clean_for_tts(sec_text))
+                    if chars > remaining:
+                        body = json.dumps({
+                            "error":   "cost_warning",
+                            "message": f"Créditos insuficientes: necesitas {chars:,} pero solo quedan {remaining:,} de {limit:,}."
+                        }).encode()
+                        self.send_response(402)
+                        self.send_header("Content-Type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(body)
+                        return
+            except Exception as e:
+                print(f"  [/download POST] No se pudo verificar créditos: {e}")
+
+            # Sintetizar con ElevenLabs y guardar
+            print(f"  [/download POST] ElevenLabs SC#{sc_num} '{sec_slug}'...", end="", flush=True)
+            mp3 = synthesize_elevenlabs(sec_text, api_key=api_key_to_use, voice_id=voice_id_to_use)
             if mp3:
                 mp3_path.parent.mkdir(parents=True, exist_ok=True)
                 mp3_path.write_bytes(mp3)

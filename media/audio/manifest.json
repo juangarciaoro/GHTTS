@@ -42,5 +42,13 @@
       "introduccion": "sc68\\introduccion.mp3",
       "conclusion": "sc68\\conclusion.mp3"
     }
+  },
+  "8": {
+    "nombre": "Gloomhaven Warehouse",
+    "secciones": {
+      "introduccion": "sc8\\introduccion.mp3",
+      "introduccion_2": "sc8\\introduccion_2.mp3",
+      "conclusion": "sc8\\conclusion.mp3"
+    }
   }
 }
