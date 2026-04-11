@@ -21,13 +21,28 @@ export default async function handler(req, res) {
   try {
     // Create a short-lived signed URL and proxy the file to avoid CORS/public-bucket issues
     const { data: signed, error: signErr } = await supabase.storage.from(BUCKET).createSignedUrl(filePath, 60);
-    if (signErr || !signed || !signed.signedURL) {
-      console.error('createSignedUrl failed', signErr);
-      return res.status(404).json({ error: 'not_found', details: signErr ? (signErr.message || String(signErr)) : 'no_signed_url' });
+    let fetchUrl = null;
+    if (signed && signed.signedURL) {
+      fetchUrl = signed.signedURL;
+    } else {
+      console.warn('createSignedUrl failed or returned no URL', signErr);
+      // Fallback: try public bucket path if SUPABASE_URL is available
+      if (SUPABASE_URL) {
+        const base = SUPABASE_URL.replace(/\/$/, '');
+        const encodedPath = filePath.split('/').map(encodeURIComponent).join('/');
+        fetchUrl = `${base}/storage/v1/object/public/${BUCKET}/${encodedPath}`;
+        console.info('Falling back to public URL', fetchUrl);
+      } else {
+        return res.status(404).json({ error: 'not_found', details: signErr ? (signErr.message || String(signErr)) : 'no_signed_url' });
+      }
     }
 
-    const r = await fetch(signed.signedURL);
-    if (!r.ok) return res.status(r.status).json({ error: 'fetch_failed', status: r.status });
+    const r = await fetch(fetchUrl);
+    if (!r.ok) {
+      const bodyText = await r.text().catch(() => '');
+      console.error('fetch failed', fetchUrl, r.status, bodyText.slice(0, 200));
+      return res.status(r.status).json({ error: 'fetch_failed', status: r.status, details: bodyText.slice(0, 1000) });
+    }
     const arrayBuffer = await r.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
     const ct = r.headers.get('content-type') || 'audio/mpeg';
