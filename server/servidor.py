@@ -444,6 +444,15 @@ if __name__ == "__main__":
   Ctrl+C para detener.
 """)
 
+    import webbrowser
+    # Ruta absoluta al archivo gloomhaven.html
+    html_path = BASE_DIR.parent / "gloomhaven.html"
+    if html_path.exists():
+        url = f"file://{html_path.resolve()}"
+        webbrowser.open(url)
+    else:
+        print(f"ADVERTENCIA: gloomhaven.html no encontrado en {html_path}")
+
     server = HTTPServer(("localhost", PORT), Handler)
     try:
         server.serve_forever()
