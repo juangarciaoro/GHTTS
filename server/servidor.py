@@ -443,23 +443,40 @@ if __name__ == "__main__":
     print("  Ctrl+C para detener.\n")
 
     import webbrowser
-    # Ruta absoluta al archivo gloomhaven.html
+    import threading
+    import time
+
+    # Abrir gloomhaven.html una sola vez
     html_path = BASE_DIR.parent / "gloomhaven.html"
     if html_path.exists():
-        url = f"file://{html_path.resolve()}"
-        webbrowser.open(url)
+        print(f"Abriendo {html_path.name} en el navegador...")
+        webbrowser.open(html_path.resolve().as_uri())
     else:
         print(f"ADVERTENCIA: gloomhaven.html no encontrado en {html_path}")
 
     server = HTTPServer(("localhost", PORT), Handler)
-    
-    import webbrowser
-    html_file = BASE_DIR.parent / "gloomhaven.html"
-    if html_file.exists():
-        print(f"Abriendo {html_file.name} en el navegador...")
-        webbrowser.open(html_file.resolve().as_uri())
+
+    def run_server():
+        try:
+            server.serve_forever()
+        except Exception as e:
+            print(f"\nServidor detenido: {e}")
+
+    server_thread = threading.Thread(target=run_server, daemon=True)
+    server_thread.start()
 
     try:
-        server.serve_forever()
+        while server_thread.is_alive():
+            time.sleep(0.5)
     except KeyboardInterrupt:
-        print("\nServidor detenido.")
+        print("\nDeteniendo servidor...")
+        server.shutdown()
+        # Realizar petición dummy para desbloquear el servidor
+        try:
+            import socket
+            with socket.create_connection(("localhost", PORT), timeout=2) as sock:
+                pass
+        except Exception:
+            pass
+        server_thread.join()
+        print("Servidor detenido.")
