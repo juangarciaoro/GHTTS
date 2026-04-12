@@ -34,8 +34,8 @@ let userElevenVoiceId = null;
 
 async function loadScenarioData() {
   try {
-    const resp = await fetch('media/gloomhaven_data.json');
-    if (!resp.ok) throw new Error('No se pudo cargar gloomhaven_data.json');
+    const resp = await fetch('assets/gloomhaven_data.json');
+    if (!resp.ok) throw new Error('No se pudo cargar assets/gloomhaven_data.json');
     DATA = await resp.json();
     NUMS = Object.keys(DATA).sort((a,b)=>parseInt(a)-parseInt(b));
     init();

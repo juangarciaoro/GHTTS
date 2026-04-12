@@ -1,4 +1,4 @@
 # Ignorar archivo de configuración sensible
 Configuration.properties
-Configuration.properties
+Configuration.properties.example
 *.pdf

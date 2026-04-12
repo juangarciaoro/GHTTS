@@ -15,13 +15,15 @@ Sigue los pasos de este documento para configurar correctamente la aplicación y
 
 ## 📥 1. Instalación de dependencias necesarias
 
-Antes de ejecutar `servidor.py`, debes instalar las librerías:
+Para despliegue en Vercel + Supabase usa las dependencias de Node descritas en `package.json` (ya incluye `@supabase/supabase-js`).
+
+Si quieres ejecutar el servidor Python localmente (opcional, solo para pruebas), instala las librerías:
 
 ```bash
 pip install edge-tts requests pathlib urllib3
 ```
 
-Estas son usadas dentro del servidor:
+Estas librerías son usadas por el servidor Python de pruebas:
 
 ```python
 from pathlib import Path
@@ -33,7 +35,7 @@ from urllib.parse import urlparse, parse_qs, unquote
 
 ## ⚙️ 2. Configuración inicial
 
-Crea una copia de  `Configuration.properties.example` y nombrala `Configuration.properties`:
+Opcional — solo si ejecutas `server/servidor.py` localmente: crea una copia de `Configuration.properties.example` y nómbrala `Configuration.properties`:
 
 ```
 [ElevenLabs]
@@ -57,30 +59,32 @@ Copia el **Voice ID** a `voice=`
 ```
 media/
 ├── audio/                 ← MP3 narrados (sc1/introduccion.mp3)
-├── gloomhaven_data.json   ← Textos de escenarios
+├── assets/gloomhaven_data.json   ← Textos de escenarios
 └── Libro_de_escenarios... ← PDF original
 ```
 
 ---
 
-## 🚀 4. Ejecutar servidor
+## 🚀 4. Despliegue en Vercel + Supabase
 
-```bash
-python servidor.py
-```
+Para producción con Vercel + Supabase:
 
-Servidor en http://localhost:7532
+- Conserva la carpeta `api/`, `vercel.json` y `package.json` (funciones serverless).
+- Configura variables de entorno en Vercel: `SUPABASE_URL`, `SUPABASE_KEY`, `ELEVEN_API_KEY`, `ELEVEN_VOICE_ID` (si usas ElevenLabs).
+- En Supabase, crea un bucket para `audio/` y ajusta permisos; las funciones pueden firmar URLs para acceso privado.
+- Conecta el repositorio a Vercel y despliega; la ruta raíz ya está rewriteada a `gloomhaven.html`.
+
+Pruebas locales: usa `vercel dev` para emular funciones serverless localmente.
 
 ---
 
 ## 🌐 5. Interfaz web
 
-Abre `gloomhaven.html` en navegador.
+Abre `gloomhaven.html` en el navegador.
 
 **Funciona con:**
-- Audio local: media/audio/sc1/conclusion.mp3
-- ElevenLabs (tiempo real)
-- Edge TTS (fallback gratis)
+- Audio en Supabase vía funciones serverless (`/api/audio-get`, `/api/audio-check`)
+- ElevenLabs (si configuras `ELEVEN_API_KEY`) o Edge TTS
 
 ---
 
