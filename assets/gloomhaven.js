@@ -207,56 +207,93 @@ async function signUpFromModal() {
   const display = regEl ? (regEl.value || '').trim() : null;
   if (!email || !pass) { if (msg) msg.textContent = 'Introduce email y contraseña.'; return; }
 
-  try {
-    const r = await fetch('/api/admin-create-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: pass, display_name: display })
-    });
-    const body = await r.json().catch(() => null);
+  // Helper to create user via admin endpoint and then attempt sign-in
+  async function tryCreateAndSignIn() {
+    try {
+      const r = await fetch('/api/admin-create-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: pass, display_name: display })
+      });
+      const body = await r.json().catch(() => null);
 
-    if (r.ok && body && (body.ok || body.user)) {
-      if (msg) msg.textContent = 'Usuario creado. Iniciando sesión...';
-      if (!supabaseClient) {
-        if (msg) msg.textContent = 'Usuario creado. Recarga la página para iniciar sesión automáticamente.';
-        return;
+      if (r.ok && body && (body.ok || body.user)) {
+        banner('Usuario creado. Iniciando sesión...', 'ok');
+        if (!supabaseClient) { banner('Usuario creado. Recarga la página para iniciar sesión automáticamente.', 'warn'); return false; }
+        const { data: sessionData, error: signErr } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+        if (signErr) {
+          banner('Usuario creado pero el inicio de sesión automático falló: ' + (signErr.message || String(signErr)), 'warn');
+          return false;
+        } else {
+          // Autologin after sign-up: keep the modal open so the user can configure credentials
+          banner('Cuenta creada y sesión iniciada. Ahora puedes configurar tus credenciales.', 'ok');
+          try { await renderAuthPanel(); } catch(e){}
+          return true;
+        }
       }
-      const { data: sessionData, error: signErr } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
-      if (signErr) {
-        if (msg) msg.textContent = 'Usuario creado pero el inicio de sesión automático falló: ' + (signErr.message || String(signErr));
-      } else {
-        if (msg) msg.textContent = 'Sesión iniciada';
-        try { await renderAuthPanel(); } catch(e){}
-        try { closeAuthModal(); } catch(e){}
+
+      // If creation failed because user exists, try sign-in
+      const errText = body && (body.error || body.message || JSON.stringify(body)) || '';
+      const createdExists = r.status === 400 || r.status === 409 || String(errText).toLowerCase().includes('already') || String(errText).toLowerCase().includes('exists');
+      if (createdExists) {
+        banner('La cuenta ya existe. Intentando iniciar sesión...', 'warn');
+        if (!supabaseClient) { banner('La cuenta existe — configura Supabase para iniciar sesión.', 'warn'); return false; }
+        const { data: sd, error: se } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+        if (se) { banner('Inicio de sesión falló: ' + (se.message || String(se)), 'error'); return false; }
+        else { banner('Sesión iniciada', 'ok'); try{ await renderAuthPanel(); }catch(e){} try{ closeAuthModal(); }catch(e){}; return true; }
       }
-      return;
-    }
 
-    // If creation failed because user exists, try sign-in
-    const errText = body && (body.error || body.message || JSON.stringify(body)) || '';
-    const exists = r.status === 400 || r.status === 409 || String(errText).toLowerCase().includes('already') || String(errText).toLowerCase().includes('exists');
-    if (exists) {
-      if (msg) msg.textContent = 'La cuenta ya existe. Intentando iniciar sesión...';
-      if (!supabaseClient) { if (msg) msg.textContent = 'La cuenta existe — configura Supabase para iniciar sesión.'; return; }
-      const { data: sd, error: se } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
-      if (se) { if (msg) msg.textContent = 'Inicio de sesión falló: ' + (se.message || String(se)); }
-      else { if (msg) msg.textContent = 'Sesión iniciada'; try{ await renderAuthPanel(); }catch(e){} try{ closeAuthModal(); }catch(e){} }
-      return;
+      if (msg) msg.textContent = (body && (body.error || body.message)) ? String(body.error || body.message) : ('Error creando usuario (' + (r.status || '??') + ')');
+      return false;
+    } catch (e) {
+      if (msg) msg.textContent = 'Error de conexión: ' + (e.message || String(e));
+      return false;
     }
-
-    // Other error
-    if (msg) msg.textContent = (body && (body.error || body.message)) ? String(body.error || body.message) : ('Error creando usuario (' + (r.status || '??') + ')');
-  } catch (e) {
-    if (msg) msg.textContent = 'Error de conexión: ' + (e.message || String(e));
   }
+
+  // First ask server whether the email is already registered (server uses service-role key)
+  let exists = null;
+  try {
+    const r = await fetch('/api/check-user?email=' + encodeURIComponent(email));
+    if (r.ok) {
+      const b = await r.json().catch(() => null);
+      exists = !!(b && b.exists);
+    }
+  } catch (e) {
+    // ignore — we'll fallback to create logic below
+  }
+
+  // If exists === true then try sign-in directly; if sign-in fails with invalid credentials, attempt create
+  if (exists === true) {
+    if (!supabaseClient) { banner('Supabase no configurado. Imposible iniciar sesión.', 'warn'); return; }
+    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+    if (!error) { banner('Sesión iniciada', 'ok'); await renderAuthPanel(); try{ closeAuthModal(); }catch(e){}; return; }
+    const emsg = (error && (error.message || error.toString())) || '';
+    // If credentials are invalid, perhaps the check endpoint gave a false positive — try creating the user
+    if (/invalid/i.test(emsg) || /password/i.test(emsg)) {
+      await tryCreateAndSignIn();
+      return;
+    }
+    banner(emsg || 'Error iniciando sesión', 'error');
+    return;
+  }
+
+  // Otherwise attempt to create the user
+  await tryCreateAndSignIn();
 }
 
 async function signInFromModal() {
-  if (!supabaseClient) return alert('Supabase no configurado');
-  const email = document.getElementById('authEmail').value;
-  const pass  = document.getElementById('authPass').value;
+  if (!supabaseClient) { banner('Supabase no configurado. Imposible iniciar sesión.', 'warn'); return; }
+  const email = (document.getElementById('authEmail')?.value || '').trim();
+  const pass  = (document.getElementById('authPass')?.value || '');
   const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
-  const msg = document.getElementById('authMsg'); if (error) msg.textContent = error.message || error.toString(); else { msg.textContent='Sesión iniciada'; await renderAuthPanel(); }
+  if (error) {
+    banner(error.message || error.toString(), 'error');
+  } else {
+    banner('Sesión iniciada', 'ok');
+    try { await renderAuthPanel(); } catch(e){}
+    try { closeAuthModal(); } catch(e){}
+  }
 }
 
 async function signOut() {
