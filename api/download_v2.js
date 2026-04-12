@@ -45,7 +45,20 @@ export default async function handler(req, res){
   if (req.method !== 'POST') return res.status(405).json({ error: 'method' });
 
   try {
-    const body = req.body || await new Promise(r=>{ let d=''; req.on('data',c=>d+=c); req.on('end',()=>r(JSON.parse(d||'{}'))); });
+    let body;
+    try {
+      body = req.body;
+    } catch (err) {
+      // Some dev runtimes (vercel dev) may throw when accessing req.body; fall back to manual parsing
+      const raw = await new Promise(r=>{ let d=''; req.on('data',c=>d+=c); req.on('end',()=>r(d)); });
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch (err2) {
+        console.error('download_v2 JSON parse failed', err2);
+        throw new Error('Invalid JSON');
+      }
+    }
+    body = body || {};
     const sc = body.sc;
     const sec = body.sec;
     let api_key = body.api_key || null;
@@ -79,7 +92,9 @@ export default async function handler(req, res){
     if (!section) return res.status(404).json({ error: 'no_section' });
 
     const text = cleanForTTS(section.texto || section.titulo || '');
-    const filename = `${slugify(item.nombre || ('sc'+sc))}/${sec}.mp3`;
+    const folder = 'sc' + String(sc);
+    const secSlug = slugify(sec);
+    const filename = `${folder}/${secSlug}.mp3`;
 
     // Check if file already exists in storage
     try{
@@ -118,6 +133,7 @@ export default async function handler(req, res){
 
   } catch (e) {
     console.error('download_v2 error', e);
-    return res.status(500).json({ error: 'server', message: e.message });
+    const stack = e && e.stack ? String(e.stack) : null;
+    return res.status(500).json({ error: 'server', message: e.message, stack });
   }
 }

@@ -6,9 +6,13 @@ function toggleMusicBar() {
   // Forzar reflow para asegurar la transición
   void bar.offsetWidth;
   if (isOpen) {
+    // Let CSS anchor the bar to the right of the screen
+    bar.style.right = '';
     setTimeout(() => fab.classList.add('hide'), 10);
   } else {
     fab.classList.remove('hide');
+    // remove inline right so CSS closed state (off-screen) applies
+    bar.style.right = '';
   }
 }
 // Cierra la barra si se hace click fuera de ella
@@ -18,6 +22,8 @@ document.addEventListener('mousedown', function(e) {
   if (!bar.classList.contains('open')) return;
   if (!bar.contains(e.target)) {
     bar.classList.remove('open');
+    // clear inline right so it slides back off-screen
+    bar.style.right = '';
     setTimeout(() => fab.classList.remove('hide'), 180);
   }
 });
@@ -26,7 +32,7 @@ let NUMS = [];
 // En producción dejamos TTS_URL vacío para usar rutas relativas (/api/...) en el dominio desplegado.
 // Para pruebas locales con el servidor Python deja 'http://localhost:7532'
 const TTS_URL = '';
-let cur=null, secIdx=0, playing=false, audio=null, pendingPlayTimeout=null, pendingCanplayListener=null, pendingFallbackTimeout=null, rate=0.9;
+let cur=null, secIdx=0, playing=false, audio=null, pendingPlayTimeout=null, pendingCanplayListener=null, pendingPlayingListener=null, pendingFallbackTimeout=null, rate=0.9;
 let ttsMode='browser';
 // Credenciales introducidas por el usuario en el flujo de descarga
 let userElevenApiKey = null;
@@ -46,40 +52,203 @@ async function initAuth() {
   });
 }
 
-function openAuthModal() { const m = document.getElementById('authModal'); if (m) m.style.display='block'; renderAuthPanel(); }
-function closeAuthModal(){ const m = document.getElementById('authModal'); if (m) m.style.display='none'; }
+function openAuthModal() {
+  const m = document.getElementById('authModal');
+  if (m) {
+    m.style.display = 'block';
+    m.classList.remove('closing');
+    // force reflow then open (triggers CSS transition)
+    void m.offsetWidth;
+    m.classList.add('open');
+    try { /* don't remove overlay yet; keep until close anim */ } catch(e) {}
+    // focus the email input for convenience
+    setTimeout(function(){ const e = document.getElementById('authEmail'); if (e) e.focus(); }, 40);
+    // attach listeners for outside click and Escape
+    document.addEventListener('mousedown', modalOutsideClick);
+    document.addEventListener('keydown', modalKeyDown);
+    try { document.body.classList.add('modal-open'); } catch(e) {}
+  }
+  renderAuthPanel();
+}
+
+function closeAuthModal(){
+  const m = document.getElementById('authModal');
+  if (!m) return;
+  // remove open, add closing to run exit animation
+  m.classList.remove('open');
+  m.classList.add('closing');
+  // detach listeners
+  document.removeEventListener('mousedown', modalOutsideClick);
+  document.removeEventListener('keydown', modalKeyDown);
+  // wait for transition to finish before hiding and removing overlay
+  const onEnd = function(ev) {
+    if (ev.propertyName === 'opacity' || ev.propertyName === 'transform') {
+      try { m.style.display = 'none'; } catch(e) {}
+      try { document.body.classList.remove('modal-open'); } catch(e) {}
+      m.classList.remove('closing');
+      m.removeEventListener('transitionend', onEnd);
+    }
+  };
+  m.addEventListener('transitionend', onEnd);
+  // fallback: ensure it hides after 350ms
+  setTimeout(function(){ if (m && m.classList.contains('closing')) { try{ m.style.display='none'; document.body.classList.remove('modal-open'); m.classList.remove('closing'); } catch(e){} } }, 400);
+}
+
+// Close modal if clicking outside its content
+// Close modal if clicking outside its content
+function modalOutsideClick(e) {
+  const m = document.getElementById('authModal');
+  if (!m) return;
+  if (m.style.display !== 'block') return;
+  if (!m.contains(e.target)) closeAuthModal();
+}
+
+// Close modal on Escape
+function modalKeyDown(e) {
+  if (e.key === 'Escape' || e.key === 'Esc') closeAuthModal();
+}
 
 async function renderAuthPanel() {
-  if (!supabaseClient) {
-    // hide auth button if supabase not configured
-    const btn = document.getElementById('btnAuth'); if (btn) btn.style.display='none';
-    return;
-  }
-  const userRes = await supabaseClient.auth.getUser();
-  const user = userRes?.data?.user || null;
+  // Ensure the auth button is visible (it opens the modal)
+  const btn = document.getElementById('btnAuth'); if (btn) btn.style.display = '';
   const forms = document.getElementById('authForms');
   const panel = document.getElementById('credPanel');
   const msg = document.getElementById('authMsg'); if(msg) msg.textContent='';
+
+  if (!supabaseClient) {
+    // Supabase not configured — show the forms but disable auth actions
+    if (forms) forms.style.display='block';
+    if (panel) panel.style.display='none';
+    if (msg) msg.textContent = 'Supabase no configurado. El login no estará disponible hasta configurar las variables.';
+    // hide logout button if present
+    const logoutBtn = document.getElementById('btnLogout'); if (logoutBtn) logoutBtn.style.display = 'none';
+    return;
+  }
+
+  const userRes = await supabaseClient.auth.getUser();
+  const user = userRes?.data?.user || null;
   if (user) {
     if (forms) forms.style.display='none';
     if (panel) panel.style.display='block';
-    // load saved credentials
+    // load saved credentials (also reads display_name column if present)
     await loadSavedCredentials();
     const k = document.getElementById('elevenKey'); const v = document.getElementById('elevenVoice');
     if (k) k.value = userElevenApiKey || '';
     if (v) v.value = userElevenVoiceId || '';
+    // populate display name from user metadata (or fallback to stored value or email localpart)
+    const dn = document.getElementById('displayName');
+    const metaName = user?.user_metadata?.display_name || user?.user_metadata?.full_name || user?.user_metadata?.name || '';
+    const headerName = metaName || (user?.email ? user.email : '');
+    if (dn) dn.value = headerName || '';
+    const logoutBtn = document.getElementById('btnLogout'); if (logoutBtn) logoutBtn.style.display = '';
+    // update header button to show display name or email
+    const btn = document.getElementById('btnAuth'); if (btn) btn.textContent = headerName || (user?.email || 'Acceder');
   } else {
     if (forms) forms.style.display='block';
     if (panel) panel.style.display='none';
+    if (msg) msg.textContent = '';
+    const logoutBtn = document.getElementById('btnLogout'); if (logoutBtn) logoutBtn.style.display = 'none';
+    const btn = document.getElementById('btnAuth'); if (btn) btn.textContent = 'Acceder';
+  }
+}
+
+function showRecoveryForm() {
+  const forms = document.getElementById('authForms');
+  const recover = document.getElementById('recoverPanel');
+  const msg = document.getElementById('authMsg'); if (msg) msg.textContent='';
+  if (forms) forms.style.display = 'none';
+  if (recover) recover.style.display = 'block';
+  const rv = document.getElementById('recoverEmail');
+  const ev = document.getElementById('authEmail');
+  if (rv) rv.value = (ev && ev.value) ? ev.value : '';
+}
+
+function hideRecoveryForm() {
+  const forms = document.getElementById('authForms');
+  const recover = document.getElementById('recoverPanel');
+  const msg = document.getElementById('authMsg'); if (msg) msg.textContent='';
+  if (forms) forms.style.display = 'block';
+  if (recover) recover.style.display = 'none';
+}
+
+async function sendPasswordRecoveryEmail() {
+  const msg = document.getElementById('authMsg'); if (msg) msg.textContent = '';
+  if (!supabaseClient) { if (msg) msg.textContent = 'Supabase no configurado. Imposible enviar correo.'; return; }
+  const emailEl = document.getElementById('recoverEmail');
+  const email = emailEl ? (emailEl.value || '').trim() : '';
+  if (!email) { if (msg) msg.textContent = 'Introduce una dirección de email válida.'; return; }
+  try {
+    // Prefer SDK helper if available
+    let result = null;
+    if (supabaseClient.auth && typeof supabaseClient.auth.resetPasswordForEmail === 'function') {
+      result = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
+    } else if (supabaseClient.auth && supabaseClient.auth.api && typeof supabaseClient.auth.api.resetPasswordForEmail === 'function') {
+      result = await supabaseClient.auth.api.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
+    } else {
+      throw new Error('Función de restablecer contraseña no disponible en el cliente Supabase');
+    }
+    const error = result?.error || null;
+    if (error) {
+      if (msg) msg.textContent = error.message || String(error);
+    } else {
+      if (msg) msg.textContent = 'Revisa tu correo. Te hemos enviado un enlace para recuperar la contraseña.';
+      hideRecoveryForm();
+    }
+  } catch (e) {
+    if (msg) msg.textContent = 'Error enviando correo: ' + (e.message || String(e));
   }
 }
 
 async function signUpFromModal() {
-  if (!supabaseClient) return alert('Supabase no configurado');
-  const email = document.getElementById('authEmail').value;
-  const pass  = document.getElementById('authPass').value;
-  const { data, error } = await supabaseClient.auth.signUp({ email, password: pass });
-  const msg = document.getElementById('authMsg'); if (error) msg.textContent = error.message || error.toString(); else msg.textContent = 'Revisa tu email para confirmar (si aplica)';
+  const msg = document.getElementById('authMsg'); if (msg) msg.textContent = '';
+  const email = document.getElementById('authEmail') ? document.getElementById('authEmail').value.trim() : '';
+  const pass  = document.getElementById('authPass') ? document.getElementById('authPass').value : '';
+  const regEl = document.getElementById('regDisplayName') || document.getElementById('displayName');
+  const display = regEl ? (regEl.value || '').trim() : null;
+  if (!email || !pass) { if (msg) msg.textContent = 'Introduce email y contraseña.'; return; }
+
+  try {
+    const r = await fetch('/api/admin-create-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: pass, display_name: display })
+    });
+    const body = await r.json().catch(() => null);
+
+    if (r.ok && body && (body.ok || body.user)) {
+      if (msg) msg.textContent = 'Usuario creado. Iniciando sesión...';
+      if (!supabaseClient) {
+        if (msg) msg.textContent = 'Usuario creado. Recarga la página para iniciar sesión automáticamente.';
+        return;
+      }
+      const { data: sessionData, error: signErr } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+      if (signErr) {
+        if (msg) msg.textContent = 'Usuario creado pero el inicio de sesión automático falló: ' + (signErr.message || String(signErr));
+      } else {
+        if (msg) msg.textContent = 'Sesión iniciada';
+        try { await renderAuthPanel(); } catch(e){}
+        try { closeAuthModal(); } catch(e){}
+      }
+      return;
+    }
+
+    // If creation failed because user exists, try sign-in
+    const errText = body && (body.error || body.message || JSON.stringify(body)) || '';
+    const exists = r.status === 400 || r.status === 409 || String(errText).toLowerCase().includes('already') || String(errText).toLowerCase().includes('exists');
+    if (exists) {
+      if (msg) msg.textContent = 'La cuenta ya existe. Intentando iniciar sesión...';
+      if (!supabaseClient) { if (msg) msg.textContent = 'La cuenta existe — configura Supabase para iniciar sesión.'; return; }
+      const { data: sd, error: se } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+      if (se) { if (msg) msg.textContent = 'Inicio de sesión falló: ' + (se.message || String(se)); }
+      else { if (msg) msg.textContent = 'Sesión iniciada'; try{ await renderAuthPanel(); }catch(e){} try{ closeAuthModal(); }catch(e){} }
+      return;
+    }
+
+    // Other error
+    if (msg) msg.textContent = (body && (body.error || body.message)) ? String(body.error || body.message) : ('Error creando usuario (' + (r.status || '??') + ')');
+  } catch (e) {
+    if (msg) msg.textContent = 'Error de conexión: ' + (e.message || String(e));
+  }
 }
 
 async function signInFromModal() {
@@ -90,27 +259,110 @@ async function signInFromModal() {
   const msg = document.getElementById('authMsg'); if (error) msg.textContent = error.message || error.toString(); else { msg.textContent='Sesión iniciada'; await renderAuthPanel(); }
 }
 
-async function signOut() { if (!supabaseClient) return; await supabaseClient.auth.signOut(); await renderAuthPanel(); }
+async function signOut() {
+  if (!supabaseClient) return;
+  await supabaseClient.auth.signOut();
+  await renderAuthPanel();
+  try { closeAuthModal(); } catch(e) {}
+}
+
+async function saveDisplayName() {
+  if (!supabaseClient) return alert('Supabase no configurado');
+  const input = document.getElementById('displayName');
+  const name = input ? (input.value || '').trim() : '';
+  if (!name) { banner('Introduce un nombre para mostrar.', 'warn'); return; }
+  try {
+    const { data, error } = await supabaseClient.auth.updateUser({ data: { display_name: name } });
+    if (error) {
+      banner('Error actualizando nombre: ' + (error.message || String(error)), 'error');
+    } else {
+      banner('Nombre actualizado', 'ok');
+      await renderAuthPanel();
+    }
+  } catch (e) {
+    banner('Error actualizando nombre: ' + (e.message || String(e)), 'error');
+  }
+}
+
+async function saveProfileAndCredentials() {
+  if (!supabaseClient) { banner('Supabase no configurado. Imposible guardar.', 'warn'); return; }
+  const name = (document.getElementById('displayName')?.value || '').trim();
+  const key  = (document.getElementById('elevenKey')?.value || '').trim();
+  const vid  = (document.getElementById('elevenVoice')?.value || '').trim();
+  const parts = [];
+  let ok = true;
+
+  if (name) {
+    try {
+      const { data, error } = await supabaseClient.auth.updateUser({ data: { display_name: name } });
+      if (error) {
+        ok = false;
+        parts.push('Error guardando nombre: ' + (error.message || String(error)));
+      } else {
+        parts.push('Nombre guardado');
+      }
+    } catch (e) {
+      ok = false;
+      parts.push('Error guardando nombre: ' + (e.message || String(e)));
+    }
+  }
+
+  try {
+    const { data: u } = await supabaseClient.auth.getUser();
+    const user = u?.user || u;
+    if (!user) {
+      ok = false;
+      parts.push('Inicia sesión para guardar credenciales');
+    } else {
+      const payload = { user_id: user.id, eleven_api_key: key || null, eleven_voice_id: vid || null, updated_at: new Date().toISOString() };
+      const { error } = await supabaseClient.from('user_credentials').upsert(payload, { returning: 'minimal' });
+      if (error) {
+        ok = false;
+        parts.push('Error guardando credenciales: ' + (error.message || String(error)));
+      } else {
+        userElevenApiKey = key;
+        userElevenVoiceId = vid;
+        parts.push('Credenciales guardadas');
+      }
+    }
+  } catch (e) {
+    ok = false;
+    parts.push('Error guardando credenciales: ' + (e.message || String(e)));
+  }
+
+  banner(parts.join(' • '), ok ? 'ok' : 'warn');
+  try { await renderAuthPanel(); } catch(e){}
+}
 
 async function saveUserCredentials() {
   if (!supabaseClient) return alert('Supabase no configurado');
-  const key = document.getElementById('elevenKey').value.trim();
-  const vid = document.getElementById('elevenVoice').value.trim();
-  const { data: u } = await supabaseClient.auth.getUser();
-  const user = u?.user || u;
-  const msg = document.getElementById('authMsg'); if (!user) { if (msg) msg.textContent='Inicia sesión para guardar credenciales'; return; }
-  const payload = { user_id: user.id, eleven_api_key: key || null, eleven_voice_id: vid || null, updated_at: new Date().toISOString() };
-  const { error } = await supabaseClient.from('user_credentials').upsert(payload, { returning: 'minimal' });
-  if (error) { if (msg) msg.textContent = error.message || String(error); } else { if (msg) msg.textContent = 'Credenciales guardadas'; userElevenApiKey = key; userElevenVoiceId = vid; }
+  const key = (document.getElementById('elevenKey')?.value || '').trim();
+  const vid = (document.getElementById('elevenVoice')?.value || '').trim();
+  try {
+    const { data: u } = await supabaseClient.auth.getUser();
+    const user = u?.user || u;
+    if (!user) { banner('Inicia sesión para guardar credenciales', 'warn'); return; }
+    const payload = { user_id: user.id, eleven_api_key: key || null, eleven_voice_id: vid || null, updated_at: new Date().toISOString() };
+    const { error } = await supabaseClient.from('user_credentials').upsert(payload, { returning: 'minimal' });
+    if (error) { banner('Error guardando credenciales: ' + (error.message || String(error)), 'error'); }
+    else { userElevenApiKey = key; userElevenVoiceId = vid; banner('Credenciales guardadas', 'ok'); }
+  } catch (e) {
+    banner('Error guardando credenciales: ' + (e.message || String(e)), 'error');
+  }
 }
 
 async function deleteUserCredentials() {
   if (!supabaseClient) return alert('Supabase no configurado');
-  const { data: u } = await supabaseClient.auth.getUser();
-  const user = u?.user || u;
-  const msg = document.getElementById('authMsg'); if (!user) { if (msg) msg.textContent='Inicia sesión primero'; return; }
-  const { error } = await supabaseClient.from('user_credentials').delete().eq('user_id', user.id);
-  if (error) { if (msg) msg.textContent = error.message || String(error); } else { if (msg) msg.textContent = 'Credenciales borradas'; userElevenApiKey = null; userElevenVoiceId = null; document.getElementById('elevenKey').value=''; document.getElementById('elevenVoice').value=''; }
+  try {
+    const { data: u } = await supabaseClient.auth.getUser();
+    const user = u?.user || u;
+    if (!user) { banner('Inicia sesión primero', 'warn'); return; }
+    const { error } = await supabaseClient.from('user_credentials').delete().eq('user_id', user.id);
+    if (error) { banner(error.message || String(error), 'error'); }
+    else { banner('Credenciales borradas', 'ok'); userElevenApiKey = null; userElevenVoiceId = null; document.getElementById('elevenKey').value=''; document.getElementById('elevenVoice').value=''; }
+  } catch (e) {
+    banner('Error borrando credenciales: ' + (e.message || String(e)), 'error');
+  }
 }
 
 async function loadSavedCredentials(){
@@ -139,15 +391,16 @@ async function loadScenarioData() {
 document.addEventListener('DOMContentLoaded', function() {
   // If the page (gloomhaven.html) created a global Supabase client, pick it up now
   try {
-    if (typeof window !== 'undefined' && (window.supabaseClient || window.supabase)) supabaseClient = window.supabaseClient || window.supabase;
+    if (typeof window !== 'undefined' && window.supabaseClient) supabaseClient = window.supabaseClient;
   } catch (e) {}
   loadScenarioData();
   initAuth();
+  // header button uses inline onclick to open the modal
 });
 
 // If supabase client is created after DOMContentLoaded, listen for the event
 window.addEventListener && window.addEventListener('supabase-ready', function(){
-  try { if (typeof window !== 'undefined' && (window.supabaseClient || window.supabase)) supabaseClient = window.supabaseClient || window.supabase; } catch(e){}
+  try { if (typeof window !== 'undefined' && window.supabaseClient) supabaseClient = window.supabaseClient; } catch(e){}
   try { initAuth(); } catch(e){}
 });
 
@@ -285,12 +538,75 @@ function cleanForTTS(text) {
     .replace(/\[Especial Jefe\]/g, 'Especial Jefe:');
 }
 
-function startTTS() {
+async function startTTS() {
   if (!cur) return;
   const sec = DATA[cur].secciones[secIdx];
   if (!sec || !sec.texto) return;
   const txt = cleanForTTS(sec.texto);
   document.getElementById('content').classList.add('tts-playing');
+
+  // Try stored MP3 first (works regardless of ttsMode)
+  const secSlug = sec ? slugify(sec.titulo) : '';
+  const audioGetEndpoint = TTS_URL.includes('localhost') ? '/audio-get' : '/api/audio-get';
+  const audioGetUrl = TTS_URL.replace(/\/$/, '') + audioGetEndpoint + '?sc=' + encodeURIComponent(cur||'') + '&sec=' + encodeURIComponent(secSlug);
+  try {
+    const r = await fetch(audioGetUrl, { signal: AbortSignal.timeout(3000) });
+    if (r.ok) {
+      const blob = await r.blob();
+      const src = URL.createObjectURL(blob);
+      audio = new Audio(src);
+      audio.onended = function() {
+        playing = false; markTab(false); updateBtns(); btnLoading(false);
+        document.getElementById('content').classList.remove('tts-playing');
+        try { if (pendingCanplayListener) audio.removeEventListener('canplay', pendingCanplayListener); } catch(e) {}
+        try { if (pendingPlayingListener) audio.removeEventListener('playing', pendingPlayingListener); } catch(e) {}
+        pendingCanplayListener = null; pendingPlayingListener = null;
+        URL.revokeObjectURL(src);
+      };
+      audio.ontimeupdate = function() {
+        if (!audio || !audio.duration) return;
+        const pct = (audio.currentTime / audio.duration) * 100;
+        const bar = document.getElementById('audioProgBar');
+        if (bar) bar.style.width = pct + '%';
+      };
+      audio.onerror = function() { playing=false; markTab(false); updateBtns(); btnLoading(false); try { if (pendingPlayingListener) audio.removeEventListener('playing', pendingPlayingListener); } catch(e) {} pendingPlayingListener = null; };
+
+      playing = true; updateBtns(); markTab(true); btnLoading(true);
+
+      const onCanPlay = function() {
+        if (pendingFallbackTimeout) { clearTimeout(pendingFallbackTimeout); pendingFallbackTimeout = null; }
+        pendingPlayTimeout = setTimeout(async function() {
+          if (audio) {
+            try {
+              await audio.play();
+              btnLoading(false);
+            } catch(e) {}
+          }
+          pendingPlayTimeout = null;
+        }, 1000);
+        pendingCanplayListener = null;
+      };
+      pendingCanplayListener = onCanPlay;
+      audio.addEventListener('canplay', onCanPlay);
+
+      pendingPlayingListener = function() { try { btnLoading(false); } catch(e) {} };
+      audio.addEventListener('playing', pendingPlayingListener);
+
+      pendingFallbackTimeout = setTimeout(function() {
+        if (!pendingPlayTimeout) {
+          if (audio) {
+            audio.play().then(()=>btnLoading(false)).catch(()=>{});
+          }
+        }
+        pendingFallbackTimeout = null;
+      }, 2500);
+
+      return;
+    }
+  } catch(e) {
+    // ignore and fall back to TTS generation
+  }
+
   if (ttsMode === 'piper') startPiper(txt);
   else startBrowser(txt);
 }
@@ -306,7 +622,7 @@ function slugify(text) {
 
 // Devuelve true si TODOS los MP3 del escenario están disponibles en el servidor
 async function scAudioReady(scNum) {
-  if (!scNum || ttsMode !== 'piper') return false;
+  if (!scNum) return false;
   const secs = DATA[scNum] ? DATA[scNum].secciones : [];
   for (const s of secs) {
     const slug = slugify(s.titulo);
@@ -324,9 +640,9 @@ async function scAudioReady(scNum) {
 async function refreshAudioIndicator() {
   const dot   = document.getElementById('audioDot');
   const btnDl = document.getElementById('btnDl');
-  if (!cur || ttsMode !== 'piper') {
-    dot.className = 'audio-dot grey';
-    btnDl.style.display = 'none';
+  if (!cur) {
+    if (dot) dot.className = 'audio-dot grey';
+    if (btnDl) btnDl.style.display = 'none';
     return;
   }
   const ready = await scAudioReady(cur);
@@ -345,7 +661,7 @@ async function refreshAudioIndicator() {
 
 // Comprueba si el MP3 de la sección actual está disponible
 async function secAudioReady() {
-  if (!cur || ttsMode !== 'piper') return false;
+  if (!cur) return false;
   const sec  = DATA[cur] && DATA[cur].secciones[secIdx];
   if (!sec) return false;
   const slug = slugify(sec.titulo);
@@ -390,6 +706,20 @@ async function downloadScAudio() {
 
   for (const s of secs) {
     const slug = slugify(s.titulo);
+
+    // If the MP3 already exists in storage, skip generation
+    try {
+      const checkEndpoint = TTS_URL.includes('localhost') ? '/audio-check' : '/api/audio-check';
+      const checkUrl = TTS_URL.replace(/\/$/, '') + checkEndpoint + '?sc=' + encodeURIComponent(cur) + '&sec=' + encodeURIComponent(slug);
+      const cr = await fetch(checkUrl, { signal: AbortSignal.timeout(2000) });
+      if (cr.ok) {
+        // already exists — skip
+        continue;
+      }
+    } catch (ee) {
+      // proceed to request generation if check failed
+    }
+
     const endpoint = TTS_URL.includes('localhost') ? '/download' : '/api/download_v2';
     const url = TTS_URL.replace(/\/$/, '') + endpoint;
     const payload = {
@@ -454,6 +784,9 @@ async function startPiper(text) {
       audio.onended = function() {
         playing = false; markTab(false); updateBtns(); btnLoading(false);
         document.getElementById('content').classList.remove('tts-playing');
+        try { if (pendingCanplayListener) audio.removeEventListener('canplay', pendingCanplayListener); } catch(e) {}
+        try { if (pendingPlayingListener) audio.removeEventListener('playing', pendingPlayingListener); } catch(e) {}
+        pendingCanplayListener = null; pendingPlayingListener = null;
         URL.revokeObjectURL(src);
       };
       audio.ontimeupdate = function() {
@@ -462,24 +795,34 @@ async function startPiper(text) {
         const bar = document.getElementById('audioProgBar');
         if (bar) bar.style.width = pct + '%';
       };
-      audio.onerror = function() { playing=false; markTab(false); updateBtns(); btnLoading(false); };
-      btnLoading(false);
+      audio.onerror = function() { playing=false; markTab(false); updateBtns(); btnLoading(false); try { if (pendingPlayingListener) audio.removeEventListener('playing', pendingPlayingListener); } catch(e) {} pendingPlayingListener = null; };
 
       // Play after 'canplay' + 1s for smooth start; fallback after 2500ms
       const onCanPlay = function() {
         if (pendingFallbackTimeout) { clearTimeout(pendingFallbackTimeout); pendingFallbackTimeout = null; }
-        pendingPlayTimeout = setTimeout(function() {
-          if (audio) audio.play().catch(function(){});
+        pendingPlayTimeout = setTimeout(async function() {
+          if (audio) {
+            try {
+              await audio.play();
+              btnLoading(false);
+            } catch(e) {}
+          }
           pendingPlayTimeout = null;
         }, 1000);
         pendingCanplayListener = null;
       };
       pendingCanplayListener = onCanPlay;
       audio.addEventListener('canplay', onCanPlay);
+
+      pendingPlayingListener = function() { try { btnLoading(false); } catch(e) {} };
+      audio.addEventListener('playing', pendingPlayingListener);
+
       // Fallback in case canplay doesn't fire in time
       pendingFallbackTimeout = setTimeout(function() {
         if (!pendingPlayTimeout) {
-          if (audio) audio.play().catch(function(){});
+          if (audio) {
+            audio.play().then(()=>btnLoading(false)).catch(()=>{});
+          }
         }
         pendingFallbackTimeout = null;
       }, 2500);
@@ -555,7 +898,9 @@ function stop() {
   if (pendingPlayTimeout) { clearTimeout(pendingPlayTimeout); pendingPlayTimeout = null; }
   if (pendingFallbackTimeout) { clearTimeout(pendingFallbackTimeout); pendingFallbackTimeout = null; }
   if (pendingCanplayListener && audio) { try { audio.removeEventListener('canplay', pendingCanplayListener); } catch(e) {} }
+  if (pendingPlayingListener && audio) { try { audio.removeEventListener('playing', pendingPlayingListener); } catch(e) {} }
   pendingCanplayListener = null;
+  pendingPlayingListener = null;
   if (audio) { audio.pause(); audio.src = ''; audio = null; }
   if (window.speechSynthesis) speechSynthesis.cancel();
   playing = false; markTab(false); updateBtns(); btnLoading(false);

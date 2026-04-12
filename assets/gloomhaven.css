@@ -76,6 +76,7 @@ header::after {
   position:absolute; bottom:-2px; left:0; right:0; height:2px;
   background: linear-gradient(90deg, transparent 0%, var(--accent) 20%, var(--accent2) 50%, var(--accent) 80%, transparent 100%);
 }
+
 .header-logo {
   display: flex;
   align-items: center;
@@ -432,8 +433,9 @@ header small { color:var(--muted); font-size:.68em; letter-spacing:1.5px; text-t
   body.immersive .sidebar-overlay { display:none !important; }
   body.immersive .music-bar,
   body.immersive .music-fab {
-    position: absolute;
-    top: calc(var(--controls-h) + 40px);
+    position: fixed;
+    bottom: 16px;
+    top: auto; /* ensure bottom anchoring in immersive mode */
     filter: grayscale(0.55) brightness(0.7) opacity(0.7);
     pointer-events: auto;
     border: none;
@@ -542,9 +544,10 @@ header small { color:var(--muted); font-size:.68em; letter-spacing:1.5px; text-t
 
   /* ── MÚSICA AMBIENTAL ── */
       .music-bar {
-        position: absolute;
-        top: calc(var(--controls-h) + 40px);
-        right: -480px;
+          position: fixed;
+          bottom: 16px;
+          top: auto; /* override immersive top positioning */
+        right: -460px; /* hidden off-screen to the right */
         z-index: 120;
         background: linear-gradient(120deg, rgba(35,26,13,0.48) 60%, rgba(30,21,8,0.36) 100%);
         border-radius: 18px 0 0 18px;
@@ -565,18 +568,19 @@ header small { color:var(--muted); font-size:.68em; letter-spacing:1.5px; text-t
         pointer-events: none;
       }
       .music-bar.open {
-        right: 0;
+        right: 0px; /* anchor to screen right */
         pointer-events: auto;
-  }
+      }
 
   .music-fab {
-    position: absolute;
-    top: calc(var(--controls-h));
-    right: 10px;
-    z-index: 10;
+    position: fixed;
+    bottom: 16px;
+    top: auto; /* override immersive top positioning */
+    right: 16px;
+    z-index: 130;
     width: 48px;
     height: 48px;
-    border-radius: 0 0 0 10px;
+    border-radius: 8px;
     background: none;
     border: none;
     display: flex;
@@ -627,28 +631,28 @@ header small { color:var(--muted); font-size:.68em; letter-spacing:1.5px; text-t
   ════════════════════════════════════════════ */
   @media (max-width: 639px) {
     .music-bar {
-      position: absolute;
-      right: -100vw;
-      left: auto;
-      top: 0;
+      position: fixed;
+      bottom: 16px;
+      right: -100vw; /* hide fully off-screen on small viewports */
       max-width: 98vw;
       min-width: 0;
       border-radius: 14px 0 0 14px;
       padding: 8px 6px 8px 10px;
       gap: 7px;
       z-index: 120;
+      transition: right 0.35s cubic-bezier(.7,0,.3,1);
     }
     .music-bar.open {
-      right: 0;
+      right: 0px;
     }
     .music-fab {
-      position: absolute;
-      right: 0;
-      top: 0;
+      position: fixed;
+      bottom: 16px;
+      right: 16px;
       width: 44px;
       height: 44px;
       font-size: 1.5em;
-      border-radius: 0 0 0 8px;
+      border-radius: 8px;
       background: none;
       border: none;
       border-right: none;
@@ -657,7 +661,7 @@ header small { color:var(--muted); font-size:.68em; letter-spacing:1.5px; text-t
       box-shadow: none;
       outline: none;
       transition: background .2s, border-color .2s, color .2s, opacity .2s;
-      z-index: 10;
+      z-index: 130;
     }
     .music-fab.hide {
       opacity: 0;
@@ -710,3 +714,76 @@ header small { color:var(--muted); font-size:.68em; letter-spacing:1.5px; text-t
     .controls { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
     .content  { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
   }
+
+/* ── AUTH MODAL (integrated popup, matches app theme) ── */
+body.modal-open { overflow: hidden; }
+body.modal-open::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.54);
+  z-index: 998;
+  backdrop-filter: blur(2.5px);
+}
+.modal {
+  position: fixed;
+  top: 12%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: none;
+  width: min(880px, 94vw);
+  max-width: 880px;
+  min-width: 320px;
+  background: linear-gradient(135deg, rgba(35,26,13,0.98), rgba(30,21,8,0.98));
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 24px 68px rgba(0,0,0,0.6), 0 1px 0 rgba(230,184,74,0.06);
+  padding: 8px;
+  backdrop-filter: blur(6px);
+  color: var(--text);
+}
+.modal { opacity:0; transform: translateX(-50%) translateY(-10px) scale(.98); transition: opacity .22s ease, transform .22s ease; }
+.modal.open { opacity:1; transform: translateX(-50%) translateY(0) scale(1); }
+.modal.closing { opacity:0; transform: translateX(-50%) translateY(8px) scale(.98); }
+.modal .modal-content {
+  background: transparent;
+  padding: 18px 22px;
+  border-radius: 8px;
+}
+.modal h3#authTitle {
+  font-family: 'Pirata One', Georgia, serif;
+  color: var(--accent2);
+  margin-bottom: 10px;
+  font-size: 1.05em;
+  letter-spacing: 1px;
+}
+.modal label { color: var(--muted); font-size: .85em; display:block; margin-bottom:6px; }
+.modal input[type="email"], .modal input[type="password"], .modal input[type="text"] {
+  width:100%;
+  background: var(--bg);
+  border:1px solid var(--border);
+  color:var(--text);
+  padding:8px 10px;
+  border-radius:6px;
+  margin-bottom:10px;
+  font-family: Georgia, serif;
+}
+.modal .btn { min-height: 34px; padding:7px 10px; }
+
+@media (max-width:640px){
+  .modal { top: 8%; width: 94vw; left: 50%; transform: translateX(-50%); }
+  .modal .modal-content { padding:12px; }
+}
+
+/* Auth modal: tabs and compact layout for login/register */
+.modal .auth-tabs { display:flex; gap:8px; margin-bottom:12px; }
+.modal .auth-tab { background:transparent; border:1px solid var(--border); color:var(--muted); padding:6px 10px; border-radius:8px; cursor:pointer; font-size:.92em; }
+.modal .auth-tab:hover { color:var(--text); border-color:var(--accent); }
+.modal .auth-tab.active { background: linear-gradient(135deg,var(--accent),var(--accent2)); color:var(--bg); border-color:var(--accent); box-shadow:0 6px 18px rgba(200,146,42,.08); }
+.modal .auth-body { display:flex; gap:12px; align-items:flex-start; }
+.modal .auth-fields { flex:1; min-width:220px; }
+@media (max-width:640px) {
+  .modal .auth-body { flex-direction:column; }
+  .modal .auth-tabs { gap:6px; flex-wrap:wrap; }
+}

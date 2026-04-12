@@ -13,7 +13,7 @@
   <img class="header-logo" src="assets/gh-logo.png" alt="Gloomhaven" />
   <span class="header-subtitle">Libro de Escenarios</span>
   <button class="immersive-btn" id="btnImmersive" onclick="toggleImmersive()" style="margin-left:auto;" title="Modo inmersivo — oculta todo excepto el texto">⛶ Inmersivo</button>
-    <button class="auth-btn" id="btnAuth" onclick="openAuthModal()" title="Iniciar sesión / Panel">🔐 Acceder</button>
+    <button class="btn primary auth-btn" id="btnAuth" onclick="openAuthModal()" title="Iniciar sesión / Panel">Acceder</button>
 </header>
 <button class="immersive-exit" onclick="toggleImmersive()">✕ Salir</button>
 <!-- ...existing code... -->
@@ -100,24 +100,41 @@
 <div id="authModal" class="modal" style="display:none;">
   <div class="modal-content">
     <h3 id="authTitle">Acceder / Registrar</h3>
-    <div id="authForms">
-      <div>
-        <label>Email</label>
-        <input id="authEmail" type="email" />
-      </div>
-      <div>
-        <label>Contraseña</label>
-        <input id="authPass" type="password" />
-      </div>
-      <div style="margin-top:8px;display:flex;gap:8px;">
-        <button onclick="signInFromModal()" class="btn">Iniciar sesión</button>
-        <button onclick="signUpFromModal()" class="btn">Registrar</button>
-        <button onclick="closeAuthModal()" class="btn">Cerrar</button>
+    <div id="authForms" style="margin-top:8px;">
+      <div class="auth-body">
+        <div class="auth-fields">
+          <div>
+            <label>Email</label>
+            <input id="authEmail" type="email" />
+          </div>
+          <div>
+            <label>Contraseña</label>
+            <input id="authPass" type="password" />
+          </div>
+          <div style="margin-top:8px;display:flex;gap:8px;">
+            <button id="btnRegisterAction" onclick="signUpFromModal()" class="btn">Crear cuenta</button>
+            <button onclick="closeAuthModal()" class="btn">Cerrar</button>
+            <a href="#" id="forgotPassLink" onclick="showRecoveryForm();return false;">¿Olvidaste la contraseña?</a>
+          </div>
+        </div>
       </div>
     </div>
-    <hr />
+    <div id="recoverPanel" style="display:none; margin-top:6px;">
+      <div>
+        <label>Introduce tu email para recuperar la contraseña</label>
+        <input id="recoverEmail" type="email" placeholder="tu@email.com" />
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px;">
+        <button onclick="sendPasswordRecoveryEmail()" class="btn primary">Enviar enlace de recuperación</button>
+        <button onclick="hideRecoveryForm()" class="btn">Cancelar</button>
+      </div>
+    </div>
     <div id="credPanel" style="display:none;">
-      <h4>Credenciales ElevenLabs</h4>
+      <h4>Perfil y credenciales</h4>
+      <div>
+        <label>Nombre a mostrar</label>
+        <input id="displayName" type="text" placeholder="Tu nombre visible" />
+      </div>
       <div>
         <label>API Key (ElevenLabs)</label>
         <input id="elevenKey" type="password" placeholder="sk_..." />
@@ -127,8 +144,8 @@
         <input id="elevenVoice" type="text" placeholder="voice-id" />
       </div>
       <div style="margin-top:8px;display:flex;gap:8px;">
-        <button onclick="saveUserCredentials()" class="btn primary">Guardar</button>
-        <button onclick="deleteUserCredentials()" class="btn warn">Borrar</button>
+        <button onclick="saveProfileAndCredentials()" class="btn primary">Guardar</button>
+        <button onclick="signOut()" id="btnLogout" class="btn warn">Cerrar sesión</button>
       </div>
     </div>
     <div id="authMsg" style="margin-top:8px;color:#c00"></div>
