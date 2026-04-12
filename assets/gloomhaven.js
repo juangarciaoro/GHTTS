@@ -1,4 +1,33 @@
 // ── ISLA DE MÚSICA FLOTANTE ─────────────────────────────────────────────
+
+// Supabase client placeholders and initializer (moved from HTML)
+// TODO: replace with your Supabase public values in production
+const SUPABASE_URL = 'https://your-project.supabase.co';
+const SUPABASE_ANON_KEY = 'your-public-anon-key';
+// Expose config so client code can inspect whether values are placeholders
+window.__SUPABASE_CONFIG = { SUPABASE_URL, SUPABASE_ANON_KEY };
+
+(async function(){
+  try {
+    // Try to obtain real values from serverless /api/env (vercel dev will read .env.local)
+    const r = await fetch('/api/env');
+    if (r.ok) {
+      const cfg = await r.json();
+      const url = cfg.SUPABASE_URL || SUPABASE_URL;
+      const key = cfg.SUPABASE_ANON_KEY || SUPABASE_ANON_KEY;
+      if (url && key && !url.includes('your-project.supabase.co') && !key.includes('your-public-anon-key') && typeof supabase !== 'undefined') {
+        try { window.supabaseClient = supabase.createClient(url, key); } catch(e) { console.warn('Error creating supabase client', e); }
+      } else {
+        console.warn('Supabase config not provided by /api/env or still placeholders');
+      }
+    }
+  } catch(e) {
+    console.warn('Error fetching /api/env', e);
+  } finally {
+    // Notify client code that supabase availability may have changed
+    try { window.dispatchEvent(new Event('supabase-ready')); } catch(e){}
+  }
+})();
 function toggleMusicBar() {
   const bar = document.getElementById('musicBar');
   const fab = document.getElementById('musicFab');
