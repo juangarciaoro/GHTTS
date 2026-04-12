@@ -32,6 +32,98 @@ let ttsMode='browser';
 let userElevenApiKey = null;
 let userElevenVoiceId = null;
 
+// Supabase client (global lib may create `supabase`; use a local name to avoid redeclaration errors)
+let supabaseClient = null;
+
+// --- Auth & credentials helpers (Supabase) ---
+async function initAuth() {
+  if (!supabaseClient) return;
+  // render initial state
+  await renderAuthPanel();
+  // subscribe to auth changes
+  supabaseClient.auth.onAuthStateChange(() => {
+    renderAuthPanel();
+  });
+}
+
+function openAuthModal() { const m = document.getElementById('authModal'); if (m) m.style.display='block'; renderAuthPanel(); }
+function closeAuthModal(){ const m = document.getElementById('authModal'); if (m) m.style.display='none'; }
+
+async function renderAuthPanel() {
+  if (!supabaseClient) {
+    // hide auth button if supabase not configured
+    const btn = document.getElementById('btnAuth'); if (btn) btn.style.display='none';
+    return;
+  }
+  const userRes = await supabaseClient.auth.getUser();
+  const user = userRes?.data?.user || null;
+  const forms = document.getElementById('authForms');
+  const panel = document.getElementById('credPanel');
+  const msg = document.getElementById('authMsg'); if(msg) msg.textContent='';
+  if (user) {
+    if (forms) forms.style.display='none';
+    if (panel) panel.style.display='block';
+    // load saved credentials
+    await loadSavedCredentials();
+    const k = document.getElementById('elevenKey'); const v = document.getElementById('elevenVoice');
+    if (k) k.value = userElevenApiKey || '';
+    if (v) v.value = userElevenVoiceId || '';
+  } else {
+    if (forms) forms.style.display='block';
+    if (panel) panel.style.display='none';
+  }
+}
+
+async function signUpFromModal() {
+  if (!supabaseClient) return alert('Supabase no configurado');
+  const email = document.getElementById('authEmail').value;
+  const pass  = document.getElementById('authPass').value;
+  const { data, error } = await supabaseClient.auth.signUp({ email, password: pass });
+  const msg = document.getElementById('authMsg'); if (error) msg.textContent = error.message || error.toString(); else msg.textContent = 'Revisa tu email para confirmar (si aplica)';
+}
+
+async function signInFromModal() {
+  if (!supabaseClient) return alert('Supabase no configurado');
+  const email = document.getElementById('authEmail').value;
+  const pass  = document.getElementById('authPass').value;
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password: pass });
+  const msg = document.getElementById('authMsg'); if (error) msg.textContent = error.message || error.toString(); else { msg.textContent='Sesión iniciada'; await renderAuthPanel(); }
+}
+
+async function signOut() { if (!supabaseClient) return; await supabaseClient.auth.signOut(); await renderAuthPanel(); }
+
+async function saveUserCredentials() {
+  if (!supabaseClient) return alert('Supabase no configurado');
+  const key = document.getElementById('elevenKey').value.trim();
+  const vid = document.getElementById('elevenVoice').value.trim();
+  const { data: u } = await supabaseClient.auth.getUser();
+  const user = u?.user || u;
+  const msg = document.getElementById('authMsg'); if (!user) { if (msg) msg.textContent='Inicia sesión para guardar credenciales'; return; }
+  const payload = { user_id: user.id, eleven_api_key: key || null, eleven_voice_id: vid || null, updated_at: new Date().toISOString() };
+  const { error } = await supabaseClient.from('user_credentials').upsert(payload, { returning: 'minimal' });
+  if (error) { if (msg) msg.textContent = error.message || String(error); } else { if (msg) msg.textContent = 'Credenciales guardadas'; userElevenApiKey = key; userElevenVoiceId = vid; }
+}
+
+async function deleteUserCredentials() {
+  if (!supabaseClient) return alert('Supabase no configurado');
+  const { data: u } = await supabaseClient.auth.getUser();
+  const user = u?.user || u;
+  const msg = document.getElementById('authMsg'); if (!user) { if (msg) msg.textContent='Inicia sesión primero'; return; }
+  const { error } = await supabaseClient.from('user_credentials').delete().eq('user_id', user.id);
+  if (error) { if (msg) msg.textContent = error.message || String(error); } else { if (msg) msg.textContent = 'Credenciales borradas'; userElevenApiKey = null; userElevenVoiceId = null; document.getElementById('elevenKey').value=''; document.getElementById('elevenVoice').value=''; }
+}
+
+async function loadSavedCredentials(){
+  if (!supabaseClient) return;
+  const { data: u } = await supabaseClient.auth.getUser();
+  const user = u?.user || u;
+  if (!user) return null;
+  const { data, error } = await supabaseClient.from('user_credentials').select('eleven_api_key, eleven_voice_id').eq('user_id', user.id).single();
+  if (!error && data) { userElevenApiKey = data.eleven_api_key || null; userElevenVoiceId = data.eleven_voice_id || null; return data; }
+  return null;
+}
+
+
 async function loadScenarioData() {
   try {
     const resp = await fetch('assets/gloomhaven_data.json');
@@ -44,7 +136,20 @@ async function loadScenarioData() {
   }
 }
 
-document.addEventListener('DOMContentLoaded', loadScenarioData);
+document.addEventListener('DOMContentLoaded', function() {
+  // If the page (gloomhaven.html) created a global Supabase client, pick it up now
+  try {
+    if (typeof window !== 'undefined' && (window.supabaseClient || window.supabase)) supabaseClient = window.supabaseClient || window.supabase;
+  } catch (e) {}
+  loadScenarioData();
+  initAuth();
+});
+
+// If supabase client is created after DOMContentLoaded, listen for the event
+window.addEventListener && window.addEventListener('supabase-ready', function(){
+  try { if (typeof window !== 'undefined' && (window.supabaseClient || window.supabase)) supabaseClient = window.supabaseClient || window.supabase; } catch(e){}
+  try { initAuth(); } catch(e){}
+});
 
 // ── Edge TTS server check ─────────────────────────────────────────────────
 async function checkPiper() {
@@ -261,12 +366,19 @@ async function downloadScAudio() {
   const dot   = document.getElementById('audioDot');
   // Pedir credenciales si no se han proporcionado aún en esta sesión
   if (!userElevenApiKey || !userElevenVoiceId) {
-    const key = prompt('Introduce tu ElevenLabs API Key (se usará solo en esta sesión):');
-    if (!key) { banner('Descarga cancelada: API Key requerida.', 'warn'); return; }
-    const vid = prompt('Introduce tu ElevenLabs VOICE ID:');
-    if (!vid) { banner('Descarga cancelada: Voice ID requerida.', 'warn'); return; }
-    userElevenApiKey = key.trim();
-    userElevenVoiceId = vid.trim();
+    // Intentar cargar credenciales guardadas desde Supabase si está configurado
+    if (supabaseClient) {
+      await loadSavedCredentials();
+    }
+    // Si aún no hay credenciales, pedirlas al usuario como fallback
+    if (!userElevenApiKey || !userElevenVoiceId) {
+      const key = prompt('Introduce tu ElevenLabs API Key (se usará solo en esta sesión):');
+      if (!key) { banner('Descarga cancelada: API Key requerida.', 'warn'); return; }
+      const vid = prompt('Introduce tu ElevenLabs VOICE ID:');
+      if (!vid) { banner('Descarga cancelada: Voice ID requerida.', 'warn'); return; }
+      userElevenApiKey = key.trim();
+      userElevenVoiceId = vid.trim();
+    }
   }
 
   btnDl.classList.add('busy');
@@ -278,7 +390,7 @@ async function downloadScAudio() {
 
   for (const s of secs) {
     const slug = slugify(s.titulo);
-    const endpoint = TTS_URL.includes('localhost') ? '/download' : '/api/download';
+    const endpoint = TTS_URL.includes('localhost') ? '/download' : '/api/download_v2';
     const url = TTS_URL.replace(/\/$/, '') + endpoint;
     const payload = {
       sc: cur,
@@ -287,9 +399,15 @@ async function downloadScAudio() {
       voice_id: userElevenVoiceId
     };
     try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (supabaseClient) {
+        const s = await supabaseClient.auth.getSession();
+        const token = s?.data?.session?.access_token || (s?.data?.access_token);
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+      }
       const r = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(60000)
       });
@@ -677,9 +795,9 @@ document.addEventListener('keydown', function(e) {
 });
 
 function init() {
+  if (!DATA) return;
   NUMS = Object.keys(DATA).sort(function(a,b){ return parseInt(a)-parseInt(b); });
   renderList();
   checkPiper();
 
 }
-init();

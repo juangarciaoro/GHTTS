@@ -13,6 +13,7 @@
   <img class="header-logo" src="assets/gh-logo.png" alt="Gloomhaven" />
   <span class="header-subtitle">Libro de Escenarios</span>
   <button class="immersive-btn" id="btnImmersive" onclick="toggleImmersive()" style="margin-left:auto;" title="Modo inmersivo — oculta todo excepto el texto">⛶ Inmersivo</button>
+    <button class="auth-btn" id="btnAuth" onclick="openAuthModal()" title="Iniciar sesión / Panel">🔐 Acceder</button>
 </header>
 <button class="immersive-exit" onclick="toggleImmersive()">✕ Salir</button>
 <!-- ...existing code... -->
@@ -63,7 +64,76 @@
     <option value="off">Apagada</option>
   </select>
 </div>
+<!-- Supabase client (fill these values with your Supabase project settings) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js/dist/umd/supabase.min.js"></script>
+<script>
+  // TODO: replace with your Supabase public values in production
+  const SUPABASE_URL = 'https://your-project.supabase.co';
+  const SUPABASE_ANON_KEY = 'your-public-anon-key';
+  // Expose config so client code can inspect whether values are placeholders
+  window.__SUPABASE_CONFIG = { SUPABASE_URL, SUPABASE_ANON_KEY };
+  (async function(){
+    try {
+      // Try to obtain real values from serverless /api/env (vercel dev will read .env.local)
+      const r = await fetch('/api/env');
+      if (r.ok) {
+        const cfg = await r.json();
+        const url = cfg.SUPABASE_URL || SUPABASE_URL;
+        const key = cfg.SUPABASE_ANON_KEY || SUPABASE_ANON_KEY;
+        if (url && key && !url.includes('your-project.supabase.co') && !key.includes('your-public-anon-key')) {
+          window.supabaseClient = supabase.createClient(url, key);
+        } else {
+          console.warn('Supabase config not provided by /api/env or still placeholders');
+        }
+      }
+    } catch(e) {
+      console.warn('Error fetching /api/env', e);
+    } finally {
+      // Notify client code that supabase availability may have changed
+      try { window.dispatchEvent(new Event('supabase-ready')); } catch(e){}
+    }
+  })();
+</script>
 <script src="assets/gloomhaven.js"></script>
+
+<!-- Auth modal + credentials panel -->
+<div id="authModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <h3 id="authTitle">Acceder / Registrar</h3>
+    <div id="authForms">
+      <div>
+        <label>Email</label>
+        <input id="authEmail" type="email" />
+      </div>
+      <div>
+        <label>Contraseña</label>
+        <input id="authPass" type="password" />
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px;">
+        <button onclick="signInFromModal()" class="btn">Iniciar sesión</button>
+        <button onclick="signUpFromModal()" class="btn">Registrar</button>
+        <button onclick="closeAuthModal()" class="btn">Cerrar</button>
+      </div>
+    </div>
+    <hr />
+    <div id="credPanel" style="display:none;">
+      <h4>Credenciales ElevenLabs</h4>
+      <div>
+        <label>API Key (ElevenLabs)</label>
+        <input id="elevenKey" type="password" placeholder="sk_..." />
+      </div>
+      <div>
+        <label>Voice ID</label>
+        <input id="elevenVoice" type="text" placeholder="voice-id" />
+      </div>
+      <div style="margin-top:8px;display:flex;gap:8px;">
+        <button onclick="saveUserCredentials()" class="btn primary">Guardar</button>
+        <button onclick="deleteUserCredentials()" class="btn warn">Borrar</button>
+      </div>
+    </div>
+    <div id="authMsg" style="margin-top:8px;color:#c00"></div>
+  </div>
+</div>
 
 </body>
 </html>

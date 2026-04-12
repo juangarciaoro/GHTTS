@@ -2,3 +2,5 @@
 Configuration.properties
 Configuration.properties.example
 *.pdf
+.vercel
+.env*.local
