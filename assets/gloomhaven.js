@@ -576,6 +576,7 @@ async function startTTS() {
       const src = URL.createObjectURL(blob);
       audio = new Audio(src);
       audio.onended = function() {
+        musicUnduck();
         playing = false; markTab(false); updateBtns(); btnLoading(false);
         document.getElementById('content').classList.remove('tts-playing');
         try { if (pendingCanplayListener) audio.removeEventListener('canplay', pendingCanplayListener); } catch(e) {}
@@ -589,8 +590,9 @@ async function startTTS() {
         const bar = document.getElementById('audioProgBar');
         if (bar) bar.style.width = pct + '%';
       };
-      audio.onerror = function() { playing=false; markTab(false); updateBtns(); btnLoading(false); try { if (pendingPlayingListener) audio.removeEventListener('playing', pendingPlayingListener); } catch(e) {} pendingPlayingListener = null; };
+      audio.onerror = function() { musicUnduck(); playing=false; markTab(false); updateBtns(); btnLoading(false); try { if (pendingPlayingListener) audio.removeEventListener('playing', pendingPlayingListener); } catch(e) {} pendingPlayingListener = null; };
 
+      musicDuck();
       playing = true; updateBtns(); markTab(true); btnLoading(true);
 
       const onCanPlay = function() {
@@ -793,6 +795,7 @@ async function startPiper(text) {
   const audioGetEndpoint = TTS_URL.includes('localhost') ? '/audio-get' : '/api/audio-get';
   const audioGetUrl = TTS_URL.replace(/\/$/, '') + audioGetEndpoint + '?sc=' + encodeURIComponent(cur||'') + '&sec=' + encodeURIComponent(secSlug);
 
+  musicDuck();
   playing = true; updateBtns(); markTab(true); btnLoading(true);
   // Try stored MP3 first
   try {
@@ -802,6 +805,7 @@ async function startPiper(text) {
       const src = URL.createObjectURL(blob);
       audio = new Audio(src);
       audio.onended = function() {
+        musicUnduck();
         playing = false; markTab(false); updateBtns(); btnLoading(false);
         document.getElementById('content').classList.remove('tts-playing');
         try { if (pendingCanplayListener) audio.removeEventListener('canplay', pendingCanplayListener); } catch(e) {}
@@ -862,6 +866,7 @@ async function startPiper(text) {
     const src = URL.createObjectURL(blob);
     audio = new Audio(src);
     audio.onended = function() {
+      musicUnduck();
       playing = false; markTab(false); updateBtns(); btnLoading(false);
       document.getElementById('content').classList.remove('tts-playing');
       URL.revokeObjectURL(src);
@@ -893,6 +898,7 @@ async function startPiper(text) {
       pendingFallbackTimeout = null;
     }, 2500);
   } catch (err) {
+    musicUnduck();
     playing=false; markTab(false); updateBtns(); btnLoading(false);
     banner('Error al conectar con Edge TTS. ¿Está el servidor en marcha?', 'warn');
   }
@@ -906,11 +912,11 @@ function startBrowser(text) {
   const voices = speechSynthesis.getVoices();
   const v = voices.find(function(v){ return v.lang.startsWith('es'); });
   if (v) utt.voice = v;
-  utt.onstart = function(){ playing=true; updateBtns(); markTab(true); };
+  utt.onstart = function(){ musicDuck(); playing=true; updateBtns(); markTab(true); };
   utt.onend = function() {
-    playing=false; markTab(false); updateBtns();
+    musicUnduck(); playing=false; markTab(false); updateBtns();
   };
-  utt.onerror = function(){ playing=false; markTab(false); updateBtns(); };
+  utt.onerror = function(){ musicUnduck(); playing=false; markTab(false); updateBtns(); };
   speechSynthesis.speak(utt);
 }
 
@@ -923,6 +929,7 @@ function stop() {
   pendingPlayingListener = null;
   if (audio) { audio.pause(); audio.src = ''; audio = null; }
   if (window.speechSynthesis) speechSynthesis.cancel();
+  musicUnduck();
   playing = false; markTab(false); updateBtns(); btnLoading(false);
   document.getElementById('content').classList.remove('tts-playing');
   const bar = document.getElementById('audioProgBar');
@@ -1137,6 +1144,24 @@ function _fadeVolume(audioEl, from, to, ms) {
     audioEl.volume = Math.max(0, Math.min(1, from + delta * step));
     if (step >= steps) clearInterval(t);
   }, interval);
+}
+
+// ── DUCKING DE MÚSICA DURANTE TTS ──────────────────────────────────────────
+// Reduce el volumen de la música ambiental mientras se reproduce audio de escenario
+const MUSIC_DUCK_RATIO = 0.3;   // bajar al 30% del volumen actual
+let _preDuckVol = null;
+
+function musicDuck() {
+  if (!musicPlaying || _preDuckVol !== null) return;
+  _preDuckVol = musicAudio.volume;
+  _fadeVolume(musicAudio, musicAudio.volume, _preDuckVol * MUSIC_DUCK_RATIO, 600);
+}
+
+function musicUnduck() {
+  if (_preDuckVol === null) return;
+  const target = _preDuckVol;
+  _preDuckVol = null;
+  _fadeVolume(musicAudio, musicAudio.volume, target, 1200);
 }
 
 // Teclado en modo inmersivo

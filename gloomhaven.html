@@ -12,7 +12,7 @@
   <div class="header-divider"></div>
   <img class="header-logo" src="assets/gh-logo.png" alt="Gloomhaven" />
   <span class="header-subtitle">Libro de Escenarios</span>
-  <button class="immersive-btn" id="btnImmersive" onclick="toggleImmersive()" style="margin-left:auto;" title="Modo inmersivo — oculta todo excepto el texto">⛶ Inmersivo</button>
+  <button class="immersive-btn" id="btnImmersive" onclick="toggleImmersive()" title="Modo inmersivo — oculta todo excepto el texto">⛶ Inmersivo</button>
     <button class="btn primary auth-btn" id="btnAuth" onclick="openAuthModal()" title="Iniciar sesión / Panel">Acceder</button>
 </header>
 <button class="immersive-exit" onclick="toggleImmersive()">✕ Salir</button>
@@ -26,7 +26,7 @@
   <div class="main">
     <div class="controls">
       <div class="ctrl-title" id="ctitle">Selecciona un escenario</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+      <div class="controls-right">
         <div class="audio-dot grey" id="audioDot" title="Estado del audio"></div>
         <button class="btn dl" id="btnDl" onclick="downloadScAudio()" style="display:none">&#8595; Descargar audio</button>
       </div>
@@ -57,7 +57,7 @@
     Vol: <input type="range" id="musicVol" min="0" max="1" step="0.05" value="0.18"
       oninput="setMusicVol(this.value)">
   </div>
-  <select id="musicMode" onchange="setMusicMode(this.value)" style="font-size:.75em;padding:3px 6px;min-height:28px;">
+  <select id="musicMode" onchange="setMusicMode(this.value)">
     <option value="ambient">Ambiente</option>
     <option value="epic">Épica</option>
     <option value="dark">Oscura</option>
