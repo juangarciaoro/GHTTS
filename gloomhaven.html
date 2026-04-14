@@ -71,45 +71,50 @@
 <!-- Auth modal + credentials panel -->
 <div id="authModal" class="modal" style="display:none;">
   <div class="modal-content">
-    <h3 id="authTitle">Acceder / Registrar</h3>
-    <div id="authForms" style="margin-top:8px;">
-      <div class="auth-body">
-        <div class="auth-fields">
-          <div>
-            <label>Email</label>
-            <input id="authEmail" type="email" />
-          </div>
-          <div>
-            <label>Contraseña</label>
-            <input id="authPass" type="password" />
-          </div>
-          <div style="margin-top:8px;display:flex;gap:8px;">
-            <button id="btnRegisterAction" onclick="signUpFromModal()" class="btn">Entrar</button>
-            <button onclick="closeAuthModal()" class="btn">Cerrar</button>
-          </div>
-        </div>
+    <button class="modal-close" onclick="closeAuthModal()" title="Cerrar">✕</button>
+
+    <!-- Login / Register form -->
+    <div id="authForms">
+      <div class="modal-header">
+        <span class="modal-emblem">⚔</span>
+        <h3 id="authTitle">Acceder</h3>
+      </div>
+      <div class="modal-divider"></div>
+      <div class="modal-fields">
+        <label for="authEmail">Email</label>
+        <input id="authEmail" type="email" autocomplete="username" placeholder="tu@email.com" />
+        <label for="authPass">Contraseña</label>
+        <input id="authPass" type="password" autocomplete="current-password" placeholder="••••••••" />
+      </div>
+      <div class="modal-actions">
+        <button id="btnRegisterAction" onclick="signUpFromModal()" class="btn primary modal-btn-submit">Acceder</button>
+        <button onclick="closeAuthModal()" class="btn modal-btn-cancel">Cancelar</button>
       </div>
     </div>
+
+    <!-- Profile / credentials panel -->
     <div id="credPanel" style="display:none;">
-      <h4>Perfil y credenciales</h4>
-      <div>
-        <label>Nombre a mostrar</label>
-        <input id="displayName" type="text" placeholder="Tu nombre visible" />
+      <div class="modal-header">
+        <span class="modal-emblem">⚔</span>
+        <h3 class="modal-panel-title">Perfil y credenciales</h3>
       </div>
-      <div>
-        <label>API Key (ElevenLabs)</label>
-        <input id="elevenKey" type="password" placeholder="sk_..." />
+      <div class="modal-divider"></div>
+      <div class="modal-fields">
+        <label for="displayName">Nombre a mostrar</label>
+        <input id="displayName" type="text" placeholder="Tu nombre visible" autocomplete="nickname" />
+        <label for="elevenKey">API Key — ElevenLabs</label>
+        <input id="elevenKey" type="password" placeholder="sk_..." autocomplete="off" />
+        <label for="elevenVoice">Voice ID</label>
+        <input id="elevenVoice" type="text" placeholder="voice-id" autocomplete="off" />
       </div>
-      <div>
-        <label>Voice ID</label>
-        <input id="elevenVoice" type="text" placeholder="voice-id" />
-      </div>
-      <div style="margin-top:8px;display:flex;gap:8px;">
-        <button onclick="saveProfileAndCredentials()" class="btn primary">Guardar</button>
+      <div class="modal-actions">
+        <button onclick="saveProfileAndCredentials()" class="btn primary modal-btn-submit">Guardar</button>
         <button onclick="signOut()" id="btnLogout" class="btn warn">Cerrar sesión</button>
       </div>
     </div>
-    <div id="authMsg" style="margin-top:8px;color:#c00"></div>
+
+    <!-- Message area -->
+    <div id="authMsg" class="modal-msg"></div>
   </div>
 </div>
 
