@@ -86,19 +86,8 @@
           <div style="margin-top:8px;display:flex;gap:8px;">
             <button id="btnRegisterAction" onclick="signUpFromModal()" class="btn">Entrar</button>
             <button onclick="closeAuthModal()" class="btn">Cerrar</button>
-            <button type="button" id="forgotPassLink" class="btn" onclick="showRecoveryForm()">Restaurar contraseña</button>
           </div>
         </div>
-      </div>
-    </div>
-    <div id="recoverPanel" style="display:none; margin-top:6px;">
-      <div>
-        <label>Introduce tu email para recuperar la contraseña</label>
-        <input id="recoverEmail" type="email" placeholder="tu@email.com" />
-      </div>
-      <div style="margin-top:8px;display:flex;gap:8px;">
-        <button onclick="sendPasswordRecoveryEmail()" class="btn primary">Enviar enlace de recuperación</button>
-        <button onclick="hideRecoveryForm()" class="btn">Cancelar</button>
       </div>
     </div>
     <div id="credPanel" style="display:none;">

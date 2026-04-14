@@ -181,52 +181,6 @@ async function renderAuthPanel() {
   }
 }
 
-function showRecoveryForm() {
-  const forms = document.getElementById('authForms');
-  const recover = document.getElementById('recoverPanel');
-  const msg = document.getElementById('authMsg'); if (msg) msg.textContent='';
-  if (forms) forms.style.display = 'none';
-  if (recover) recover.style.display = 'block';
-  const rv = document.getElementById('recoverEmail');
-  const ev = document.getElementById('authEmail');
-  if (rv) rv.value = (ev && ev.value) ? ev.value : '';
-}
-
-function hideRecoveryForm() {
-  const forms = document.getElementById('authForms');
-  const recover = document.getElementById('recoverPanel');
-  const msg = document.getElementById('authMsg'); if (msg) msg.textContent='';
-  if (forms) forms.style.display = 'block';
-  if (recover) recover.style.display = 'none';
-}
-
-async function sendPasswordRecoveryEmail() {
-  const msg = document.getElementById('authMsg'); if (msg) msg.textContent = '';
-  if (!supabaseClient) { if (msg) msg.textContent = 'Supabase no configurado. Imposible enviar correo.'; return; }
-  const emailEl = document.getElementById('recoverEmail');
-  const email = emailEl ? (emailEl.value || '').trim() : '';
-  if (!email) { if (msg) msg.textContent = 'Introduce una dirección de email válida.'; return; }
-  try {
-    // Prefer SDK helper if available
-    let result = null;
-    if (supabaseClient.auth && typeof supabaseClient.auth.resetPasswordForEmail === 'function') {
-      result = await supabaseClient.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
-    } else if (supabaseClient.auth && supabaseClient.auth.api && typeof supabaseClient.auth.api.resetPasswordForEmail === 'function') {
-      result = await supabaseClient.auth.api.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
-    } else {
-      throw new Error('Función de restablecer contraseña no disponible en el cliente Supabase');
-    }
-    const error = result?.error || null;
-    if (error) {
-      if (msg) msg.textContent = error.message || String(error);
-    } else {
-      if (msg) msg.textContent = 'Revisa tu correo. Te hemos enviado un enlace para recuperar la contraseña.';
-      hideRecoveryForm();
-    }
-  } catch (e) {
-    if (msg) msg.textContent = 'Error enviando correo: ' + (e.message || String(e));
-  }
-}
 
 async function signUpFromModal() {
   const msg = document.getElementById('authMsg'); if (msg) msg.textContent = '';
