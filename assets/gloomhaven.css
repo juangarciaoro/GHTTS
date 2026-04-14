@@ -715,75 +715,201 @@ header small { color:var(--muted); font-size:.68em; letter-spacing:1.5px; text-t
     .content  { padding-bottom: max(20px, env(safe-area-inset-bottom)); }
   }
 
-/* ── AUTH MODAL (integrated popup, matches app theme) ── */
+/* ── AUTH MODAL ── */
 body.modal-open { overflow: hidden; }
+
+/* Backdrop */
 body.modal-open::before {
   content: '';
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.54);
+  background: rgba(0,0,0,0.65);
   z-index: 998;
-  backdrop-filter: blur(2.5px);
+  backdrop-filter: blur(3px);
 }
+
+/* Modal shell */
 .modal {
   position: fixed;
-  top: 12%;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%);
   z-index: 1000;
   display: none;
-  width: min(880px, 94vw);
-  max-width: 880px;
-  min-width: 320px;
-  background: linear-gradient(135deg, rgba(35,26,13,0.98), rgba(30,21,8,0.98));
+  width: min(440px, 94vw);
+  min-width: 300px;
+  background: linear-gradient(160deg, #0f0900 0%, #1c1208 40%, #231a0d 100%);
   border: 1.5px solid var(--border);
   border-radius: 12px;
-  box-shadow: 0 24px 68px rgba(0,0,0,0.6), 0 1px 0 rgba(230,184,74,0.06);
-  padding: 8px;
-  backdrop-filter: blur(6px);
+  box-shadow:
+    0 28px 72px rgba(0,0,0,0.72),
+    0 0 0 1px rgba(200,146,42,0.06),
+    inset 0 1px 0 rgba(230,184,74,0.08);
+  overflow: hidden;
   color: var(--text);
+  max-height: 90vh;
+  overflow-y: auto;
 }
-.modal { opacity:0; transform: translateX(-50%) translateY(-10px) scale(.98); transition: opacity .22s ease, transform .22s ease; }
-.modal.open { opacity:1; transform: translateX(-50%) translateY(0) scale(1); }
-.modal.closing { opacity:0; transform: translateX(-50%) translateY(8px) scale(.98); }
-.modal .modal-content {
-  background: transparent;
-  padding: 18px 22px;
-  border-radius: 8px;
+
+/* Gold shimmer line on top edge */
+.modal::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--accent) 20%,
+    var(--accent2) 50%,
+    var(--accent) 80%,
+    transparent 100%
+  );
+  z-index: 1;
 }
-.modal h3#authTitle {
+
+/* Animation states */
+.modal         { opacity: 0; transform: translate(-50%, -52%) scale(.97); transition: opacity .22s ease, transform .22s ease; }
+.modal.open    { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+.modal.closing { opacity: 0; transform: translate(-50%, -48%) scale(.97); }
+
+/* Content area */
+.modal-content {
+  padding: 28px 28px 24px;
+  position: relative;
+}
+
+/* Close button (✕) */
+.modal-close {
+  position: absolute;
+  top: 14px; right: 16px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-size: 1em;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 5px;
+  transition: .15s;
+  -webkit-tap-highlight-color: transparent;
+  z-index: 2;
+}
+.modal-close:hover { color: var(--accent2); border-color: var(--border); }
+
+/* Header: emblem + title */
+.modal-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-right: 30px;
+}
+.modal-emblem {
+  font-size: 1em;
+  color: var(--accent);
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 5px rgba(200,146,42,.35));
+}
+.modal-header h3,
+.modal h3#authTitle,
+.modal .modal-panel-title {
   font-family: 'Pirata One', Georgia, serif;
+  font-size: 1.15em;
+  font-weight: 600;
   color: var(--accent2);
-  margin-bottom: 10px;
-  font-size: 1.05em;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
+  text-shadow: 0 0 20px rgba(230,184,74,.2);
+  margin: 0;
 }
-.modal label { color: var(--muted); font-size: .85em; display:block; margin-bottom:6px; }
-.modal input[type="email"], .modal input[type="password"], .modal input[type="text"] {
-  width:100%;
+
+/* Ornamental divider (like .sec-header::after) */
+.modal-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--accent) 20%,
+    var(--accent2) 50%,
+    var(--accent) 80%,
+    transparent
+  );
+  opacity: .55;
+  margin-bottom: 20px;
+}
+
+/* Form fields */
+.modal-fields {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 18px;
+}
+.modal-fields label {
+  font-family: 'Pirata One', Georgia, serif;
+  font-size: .72em;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 5px;
+  display: block;
+}
+.modal-fields input[type="email"],
+.modal-fields input[type="password"],
+.modal-fields input[type="text"] {
+  width: 100%;
   background: var(--bg);
-  border:1px solid var(--border);
-  color:var(--text);
-  padding:8px 10px;
-  border-radius:6px;
-  margin-bottom:10px;
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 12px;
+  border-radius: 6px;
   font-family: Georgia, serif;
+  font-size: .9em;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  margin-bottom: 14px;
 }
-.modal .btn { min-height: 34px; padding:7px 10px; }
-
-@media (max-width:640px){
-  .modal { top: 8%; width: 94vw; left: 50%; transform: translateX(-50%); }
-  .modal .modal-content { padding:12px; }
+.modal-fields input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(200,146,42,.12);
 }
+.modal-fields input::placeholder { color: var(--muted); opacity: .55; }
 
-/* Auth modal: tabs and compact layout for login/register */
-.modal .auth-tabs { display:flex; gap:8px; margin-bottom:12px; }
-.modal .auth-tab { background:transparent; border:1px solid var(--border); color:var(--muted); padding:6px 10px; border-radius:8px; cursor:pointer; font-size:.92em; }
-.modal .auth-tab:hover { color:var(--text); border-color:var(--accent); }
-.modal .auth-tab.active { background: linear-gradient(135deg,var(--accent),var(--accent2)); color:var(--bg); border-color:var(--accent); box-shadow:0 6px 18px rgba(200,146,42,.08); }
-.modal .auth-body { display:flex; gap:12px; align-items:flex-start; }
-.modal .auth-fields { flex:1; min-width:220px; }
-@media (max-width:640px) {
-  .modal .auth-body { flex-direction:column; }
-  .modal .auth-tabs { gap:6px; flex-wrap:wrap; }
+/* Action buttons row */
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.modal-btn-submit { flex: 1; }
+.modal-btn-cancel {
+  background: none;
+  border-color: transparent;
+  color: var(--muted);
+  min-width: 80px;
+}
+.modal-btn-cancel:hover { border-color: var(--border); color: var(--text); }
+
+/* Warn button (sign out, destructive actions) */
+.btn.warn {
+  background: rgba(163,51,51,.12);
+  border-color: var(--red);
+  color: #df8f8f;
+}
+.btn.warn:hover { background: rgba(163,51,51,.28); color: #f0b0b0; }
+
+/* Status / error message */
+.modal-msg {
+  margin-top: 12px;
+  font-size: .82em;
+  color: #df8f8f;
+  font-style: italic;
+  text-align: center;
+  line-height: 1.4;
+}
+.modal-msg:empty { display: none; }
+.modal-msg.ok { color: #8fdf8f; }
+
+@media (max-width: 640px) {
+  .modal-content { padding: 22px 18px 20px; }
+  .modal-actions { flex-wrap: wrap; }
+  .modal-btn-submit { order: -1; }
 }
